@@ -1,4 +1,7 @@
 # wordKernel
+
+In collaboration with: Professor Chad Hazlett and Aaron Rudkin
+
 An approach to word vectorization that represents words by their weighted proximity to other words in corpus.
 
 Generates word embeddings from a corpus of N unique words through outputting an NxN kernel matrix where each ith row and column correspond to a word vector.  The matrix is symmetric and has diagonals of value 1.
