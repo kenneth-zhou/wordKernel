@@ -1,6 +1,6 @@
 # wordKernel
 
-In collaboration with: Professor Chad Hazlett and Aaron Rudkin
+In collaboration with Professor Chad Hazlett and Aaron Rudkin.
 
 An approach to word vectorization that represents words by their weighted proximity to other words in corpus.
 
