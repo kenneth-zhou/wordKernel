@@ -1,4 +1,30 @@
-######################### PRE-LOAD + PRE-TRAIN #####################################
+######################## PRE-PROCESSING FUNCTION ###########################
+# Shell preprocesing function
+preProcessDocument = function(document, stripPunc=TRUE, stripDigits = TRUE, lowercase=TRUE, stopWord=TRUE, stripExcessWhitespace = TRUE, lemmatize=FALSE, stem = FALSE)
+{
+  if(stripPunc) document = gsub("[^[:alpha:] ]", " ", document)
+  if(stripDigits) document = gsub("[0-9]", " ", document)
+  if(lowercase) document = tolower(document)
+  if(stopWord) {
+    stopwords1 = c("\\ba\\b",	"\\babout\\b",	"\\babove\\b",	"\\bacross\\b",	"\\bafter\\b",	"\\bagain\\b",	"\\bagainst\\b",	"\\ball\\b",	"\\balmost\\b",	"\\balone\\b",	"\\balong\\b",	"\\balready\\b",	"\\balso\\b",	"\\balthough\\b",	"\\balways\\b",	"\\bam\\b",	"\\bamong\\b",	"\\ban\\b",	"\\band\\b",	"\\banother\\b",	"\\bany\\b",	"\\banybody\\b",	"\\banyone\\b",	"\\banything\\b",	"\\banywhere\\b",	"\\bare\\b",	"\\barea\\b",	"\\bareas\\b",	"\\baren't\\b",	"\\baround\\b",	"\\bas\\b",	"\\bask\\b",	"\\basked\\b",	"\\basking\\b",	"\\basks\\b",	"\\bat\\b",	"\\baway\\b",	"\\bb\\b",	"\\bback\\b",	"\\bbacked\\b",	"\\bbacking\\b",	"\\bbacks\\b",	"\\bbe\\b",	"\\bbecame\\b",	"\\bbecause\\b",	"\\bbecome\\b",	"\\bbecomes\\b",	"\\bbeen\\b",	"\\bbefore\\b",	"\\bbegan\\b",	"\\bbehind\\b",	"\\bbeing\\b",	"\\bbeings\\b",	"\\bbelow\\b",	"\\bbest\\b",	"\\bbetter\\b",	"\\bbetween\\b",	"\\bbig\\b",	"\\bboth\\b",	"\\bbr\\b", "\\bbut\\b",	"\\bby\\b",	"\\bc\\b",	"\\bcame\\b",	"\\bcan\\b",	"\\bcannot\\b",	"\\bcan't\\b",	"\\bcase\\b",	"\\bcases\\b",	"\\bcertain\\b",	"\\bcertainly\\b",	"\\bclear\\b",	"\\bclearly\\b",	"\\bcome\\b",	"\\bcould\\b",	"\\bcouldn't\\b",	"\\bd\\b",	"\\bdid\\b",	"\\bdidn't\\b",	"\\bdiffer\\b",	"\\bdifferent\\b",	"\\bdifferently\\b",	"\\bdo\\b",	"\\bdoes\\b",	"\\bdoesn't\\b",	"\\bdoing\\b",	"\\bdone\\b",	"\\bdon't\\b",	"\\bdown\\b",	"\\bdowned\\b",	"\\bdowning\\b",	"\\bdowns\\b",	"\\bduring\\b",	"\\be\\b",	"\\beach\\b",	"\\bearly\\b",	"\\beither\\b",	"\\bend\\b",	"\\bended\\b",	"\\bending\\b",	"\\bends\\b",	"\\benough\\b",	"\\beven\\b",	"\\bevenly\\b",	"\\bever\\b",	"\\bevery\\b",	"\\beverybody\\b",	"\\beveryone\\b",	"\\beverything\\b",	"\\beverywhere\\b",	"\\bf\\b",	"\\bface\\b",	"\\bfaces\\b",	"\\bfact\\b",	"\\bfacts\\b",	"\\bfar\\b",	"\\bfelt\\b",	"\\bfew\\b",	"\\bfind\\b",	"\\bfinds\\b",	"\\bfirst\\b",	"\\bfor\\b",	"\\bfour\\b",	"\\bfrom\\b",	"\\bfull\\b",	"\\bfully\\b",	"\\bfurther\\b",	"\\bfurthered\\b",	"\\bfurthering\\b",	"\\bfurthers\\b",	"\\bg\\b",	"\\bgave\\b",	"\\bgeneral\\b",	"\\bgenerally\\b",	"\\bget\\b",	"\\bgets\\b",	"\\bgive\\b",	"\\bgiven\\b",	"\\bgives\\b",	"\\bgo\\b",	"\\bgoing\\b",	"\\bgood\\b",	"\\bgoods\\b",	"\\bgot\\b",	"\\bgreat\\b",	"\\bgreater\\b",	"\\bgreatest\\b",	"\\bgroup\\b",	"\\bgrouped\\b",	"\\bgrouping\\b",	"\\bgroups\\b",	"\\bh\\b",	"\\bhad\\b",	"\\bhadn't\\b",	"\\bhas\\b",	"\\bhasn't\\b",	"\\bhave\\b",	"\\bhaven't\\b",	"\\bhaving\\b",	"\\bhe\\b",	"\\bhe'd\\b",	"\\bhe'll\\b",	"\\bher\\b",	"\\bhere\\b",	"\\bhere's\\b",	"\\bhers\\b",	"\\bherself\\b",	"\\bhe's\\b",	"\\bhigh\\b",	"\\bhigher\\b",	"\\bhighest\\b",	"\\bhim\\b",	"\\bhimself\\b",	"\\bhis\\b",	"\\bhow\\b",	"\\bhowever\\b",	"\\bhow's\\b",	"\\bi\\b",	"\\bi'd\\b",	"\\bif\\b",	"\\bi'll\\b",	"\\bi'm\\b",	"\\bimportant\\b",	"\\bin\\b",	"\\binterest\\b",	"\\binterested\\b",	"\\binteresting\\b",	"\\binterests\\b",	"\\binto\\b",	"\\bis\\b",	"\\bisn't\\b",	"\\bit\\b",	"\\bits\\b",	"\\bit's\\b",	"\\bitself\\b",	"\\bi've\\b",	"\\bj\\b",	"\\bjust\\b",	"\\bk\\b",	"\\bkeep\\b",	"\\bkeeps\\b",	"\\bkind\\b",	"\\bknew\\b",	"\\bknow\\b",	"\\bknown\\b",	"\\bknows\\b",	"\\bl\\b",	"\\blarge\\b",	"\\blargely\\b")
+    stopwords2 = c("\\blast\\b",	"\\blater\\b",	"\\blatest\\b",	"\\bleast\\b",	"\\bless\\b",	"\\blet\\b",	"\\blets\\b",	"\\blet's\\b",	"\\blike\\b",	"\\blikely\\b",	"\\blong\\b",	"\\blonger\\b",	"\\blongest\\b",	"\\bm\\b",	"\\bmade\\b",	"\\bmake\\b",	"\\bmaking\\b",	"\\bman\\b",	"\\bmany\\b",	"\\bmay\\b",	"\\bme\\b",	"\\bmember\\b",	"\\bmembers\\b",	"\\bmen\\b",	"\\bmight\\b",	"\\bmore\\b",	"\\bmost\\b",	"\\bmostly\\b",	"\\bmr\\b",	"\\bmrs\\b",	"\\bmuch\\b",	"\\bmust\\b",	"\\bmustn't\\b",	"\\bmy\\b",	"\\bmyself\\b",	"\\bn\\b", "\n", "\\bnecessary\\b",	"\\bneed\\b",	"\\bneeded\\b",	"\\bneeding\\b",	"\\bneeds\\b",	"\\bnever\\b",	"\\bnew\\b",	"\\bnewer\\b",	"\\bnewest\\b",	"\\bnext\\b",	"\\bno\\b",	"\\bnobody\\b",	"\\bnon\\b",	"\\bnoone\\b",	"\\bnor\\b",	"\\bnot\\b",	"\\bnothing\\b",	"\\bnow\\b",	"\\bnowhere\\b",	"\\bnumber\\b",	"\\bnumbers\\b",	"\\bo\\b",	"\\bof\\b",	"\\boff\\b",	"\\boften\\b",	"\\bold\\b",	"\\bolder\\b",	"\\boldest\\b",	"\\bon\\b",	"\\bonce\\b",	"\\bone\\b",	"\\bonly\\b",	"\\bopen\\b",	"\\bopened\\b",	"\\bopening\\b",	"\\bopens\\b",	"\\bor\\b")
+    stopwords3 = c("\\border\\b",	"\\bordered\\b",	"\\bordering\\b",	"\\borders\\b",	"\\bother\\b",	"\\bothers\\b",	"\\bought\\b",	"\\bour\\b",	"\\bours\\b",	"\\bourselves\\b",	"\\bout\\b",	"\\bover\\b",	"\\bown\\b",	"\\bp\\b",	"\\bpart\\b",	"\\bparted\\b",	"\\bparting\\b",	"\\bparts\\b",	"\\bper\\b",	"\\bperhaps\\b",	"\\bplace\\b",	"\\bplaces\\b",	"\\bpoint\\b",	"\\bpointed\\b",	"\\bpointing\\b",	"\\bpoints\\b",	"\\bpossible\\b",	"\\bpresent\\b",	"\\bpresented\\b",	"\\bpresenting\\b",	"\\bpresents\\b",	"\\bproblem\\b",	"\\bproblems\\b",	"\\bput\\b",	"\\bputs\\b",	"\\bq\\b",	"\\bquite\\b",	"\\br\\b", "\r",	"\\brather\\b",	"\\breally\\b",	"\\bright\\b",	"\\broom\\b",	"\\brooms\\b",	"\\bs\\b",	"\\bsaid\\b",	"\\bsame\\b",	"\\bsaw\\b",	"\\bsay\\b",	"\\bsays\\b",	"\\bsecond\\b",	"\\bseconds\\b",	"\\bsee\\b",	"\\bseem\\b",	"\\bseemed\\b",	"\\bseeming\\b",	"\\bseems\\b",	"\\bsees\\b",	"\\bseveral\\b",	"\\bshall\\b",	"\\bshan't\\b",	"\\bshe\\b",	"\\bshe'd\\b",	"\\bshe'll\\b",	"\\bshe's\\b",	"\\bshould\\b",	"\\bshouldn't\\b",	"\\bshow\\b",	"\\bshowed\\b",	"\\bshowing\\b",	"\\bshows\\b",	"\\bside\\b",	"\\bsides\\b",	"\\bsince\\b",	"\\bsmall\\b",	"\\bsmaller\\b",	"\\bsmallest\\b",	"\\bso\\b",	"\\bsome\\b",	"\\bsomebody\\b",	"\\bsomeone\\b",	"\\bsomething\\b",	"\\bsomewhere\\b",	"\\bstate\\b",	"\\bstates\\b",	"\\bstill\\b",	"\\bsuch\\b",	"\\bsure\\b",	"\\bt\\b",	"\\btake\\b",	"\\btaken\\b",	"\\bthan\\b",	"\\bthat\\b",	"\\bthat's\\b",	"\\bthe\\b",	"\\btheir\\b",	"\\btheirs\\b",	"\\bthem\\b",	"\\bthemselves\\b",	"\\bthen\\b",	"\\bthere\\b",	"\\btherefore\\b",	"\\bthere's\\b",	"\\bthese\\b",	"\\bthey\\b",	"\\bthey'd\\b",	"\\bthey'll\\b",	"\\bthey're\\b",	"\\bthey've\\b",	"\\bthing\\b",	"\\bthings\\b",	"\\bthink\\b",	"\\bthinks\\b",	"\\bthis\\b",	"\\bthose\\b",	"\\bthough\\b",	"\\bthought\\b",	"\\bthoughts\\b",	"\\bthree\\b",	"\\bthrough\\b",	"\\bthus\\b",	"\\bto\\b",	"\\btoday\\b",	"\\btogether\\b",	"\\btoo\\b",	"\\btook\\b",	"\\btoward\\b",	"\\bturn\\b",	"\\bturned\\b",	"\\bturning\\b",	"\\bturns\\b",	"\\btwo\\b",	"\\bu\\b",	"\\bunder\\b",	"\\buntil\\b",	"\\bup\\b",	"\\bupon\\b",	"\\bus\\b",	"\\buse\\b",	"\\bused\\b",	"\\buses\\b",	"\\bv\\b",	"\\bvery\\b",	"\\bw\\b",	"\\bwant\\b",	"\\bwanted\\b",	"\\bwanting\\b",	"\\bwants\\b",	"\\bwas\\b",	"\\bwasn't\\b",	"\\bway\\b",	"\\bways\\b",	"\\bwe\\b",	"\\bwe'd\\b",	"\\bwell\\b",	"\\bwe'll\\b",	"\\bwells\\b",	"\\bwent\\b",	"\\bwere\\b",	"\\bwe're\\b",	"\\bweren't\\b",	"\\bwe've\\b",	"\\bwhat\\b",	"\\bwhat's\\b",	"\\bwhen\\b",	"\\bwhen's\\b",	"\\bwhere\\b",	"\\bwhere's\\b",	"\\bwhether\\b",	"\\bwhich\\b",	"\\bwhile\\b",	"\\bwho\\b",	"\\bwhole\\b",	"\\bwhom\\b",	"\\bwho's\\b",	"\\bwhose\\b",	"\\bwhy\\b",	"\\bwhy's\\b",	"\\bwill\\b",	"\\bwith\\b",	"\\bwithin\\b",	"\\bwithout\\b",	"\\bwon't\\b",	"\\bwork\\b",	"\\bworked\\b",	"\\bworking\\b",	"\\bworks\\b",	"\\bwould\\b",	"\\bwouldn't\\b",	"\\bx\\b",	"\\by\\b",	"\\byear\\b",	"\\byears\\b",	"\\byes\\b",	"\\byet\\b",	"\\byou\\b",	"\\byou'd\\b",	"\\byou'll\\b",	"\\byoung\\b",	"\\byounger\\b",	"\\byoungest\\b",	"\\byour\\b",	"\\byou're\\b",	"\\byours\\b",	"\\byourself\\b",	"\\byourselves\\b",	"\\byou've\\b",	"\\bz\\b")
+    document = gsub(pattern = paste(stopwords1, collapse = "|"), " ", document, ignore.case = TRUE)
+    document = gsub(pattern = paste(stopwords2, collapse = "|"), " ", document, ignore.case = TRUE)
+    document = gsub(pattern = paste(stopwords3, collapse = "|"), " ", document, ignore.case = TRUE)
+  }
+  #replaces any space character(space, tab), or repeats of space characters with a space character
+  if(stripExcessWhitespace) document = gsub("\\s+"," ",document)
+  if(lemmatize & document != "" & document != " ") {
+    tagged.results <- treetag(document, treetagger="manual", format="obj",
+                              TT.tknz=FALSE , lang="en",TT.options=list(path="C:/TreeTagger", 
+                                                                        preset="en", no.unknown = TRUE))    #path argument needs to be set manually to local download of TreeTagger
+    document = paste(tagged.results@TT.res$lemma, collapse = " ")
+  }
+  if (stem & document != "" & document != " ") document = paste(wordStem(strsplit(document, split = " ")[[1]]), collapse = " ")
+  return(document)
+}
+######################### PRE-LOAD + PRE-TRAIN OANC #####################################
 
 ## source: https://github.com/bmschmidt/wordVectors
 ## packages to install
@@ -8,6 +34,8 @@
 #loading packages
 library(wordVectors)
 library(stringi)
+library(readr)
+library(dplyr)
 
 #prepare text for word2vec
 #what it does:
@@ -21,14 +49,99 @@ prep_word2vec(origin="OANC_subset_310",destination="word2vec_OANC_subset_310.txt
 #train model
 if (!file.exists("word2vec_vectors.bin")) {model = train_word2vec("word2vec_OANC_subset_310.txt","word2vec_vectors.bin",vectors=500,threads=7,window=12,iter=5,negative_samples=5)} else model = read.vectors("word2vec_vectors.bin")
 
-#IMdb
+#train-test IMdb
 setwd("C:/Users/Kenneth/Desktop/wordKernel")
 imdbdata = read_tsv("Datasets/IMDb/IMDBlabeledtrain.tsv")
 imdbtest = imdbdata[20001:24722,2:3]
 imdbtrain = imdbdata[1:20000,2:3]
 
+######################### PRE-LOAD + PRE-TRAIN IMDB #####################################
+
+## source: https://github.com/bmschmidt/wordVectors
+## packages to install
+# library(devtools)
+#install_github("bmschmidt/wordVectors")
+
+#loading packages
+library(wordVectors)
+library(stringi)
+library(readr)
+library(dplyr)
+
+#prepare text for word2vec
+#what it does:
+#1) create single text file with contents of all documents
+#2) clean and lowercase original text
+#3) option to do n-grams (bundle_ngrams = ?)
+
+#IMdb
+setwd("C:/Users/Kenneth/Desktop/wordKernel")
+imdbdata = read_tsv("Datasets/IMDb/IMDBlabeledtrain.tsv")
+imdbtest = imdbdata[20001:21000,2:3]
+imdbtrain = imdbdata[1:4000,2:3]
+
+#preparing IMDb documents for word2vec pre-training
+imdbcorpus = imdbtrain$review
+setwd("~/Desktop/wordKernel/Datasets/IMDb/word2vec")
+
+for (i in 1:length(imdbcorpus))
+{
+  writeLines(preProcessDocument(imdbcorpus[i]),paste("documents/",i,".txt", sep =""))
+}
+
+prep_word2vec(origin="documents",destination="word2vec_prepped.txt",lowercase=T,bundle_ngrams=1)
+
+#train model
+if (!file.exists("word2vec_vectors.bin")) {model = train_word2vec("word2vec_prepped.txt","word2vec_vectors.bin",vectors=500,threads=7,window=12,iter=5)} else model = read.vectors("word2vec_vectors.bin")
+
+########################## EXAMINING PRE-TRAINED VECTORS ############################
+
+#Function that returns the cosine similarity of two vectors
+CosSim = function(vector1, vector2)
+{
+  return((t(vector1) %*% (vector2))/sqrt(sum(vector1^2)*sum(vector2^2)))
+}
+
+## Returning cossine similarity for words
+cossim_df = data.frame(apply(model, 1, CosSim, vector2 = as.vector(model[which(rownames(model) %in% rownames(model)[1]),], mode = "numeric")))
+colnames(cossim_df) = rownames(model)[1]
+for (i in rownames(model)[2:length(rownames(model))])
+{
+  cossim = data.frame(apply(model, 1, CosSim, vector2 = as.vector(model[which(rownames(model) %in% i),], mode = "numeric")))
+  colnames(cossim) = i
+  cossim_df = cbind(cossim_df, cossim)
+}
+
+## IMDb (4000 train) 
+
+#movie
+movie = t(cossim_df[which(rownames(cossim_df) %in% c("movie")),])
+#top 10: movies, popcorn, segal, lungren, rgv, anytime, fingernails, commented, cringed, rainy
+#for context: film is 0.2955446 (top 10 are 0.36 - 0.40)
+
+#girl
+girl = t(cossim_df[which(rownames(cossim_df) %in% c("girl")),])
+#top 10: paulie, madly, meets, marie, boy, withdrawn, pauline, array, longed, salesman
+#for context: brunette is 0.400378, blonde is 0.3895242, bride is 0.3645643, girls is 0.3542498 (top 10 are 0.40-0.54)
+
+#positive
+positive = t(cossim_df[which(rownames(cossim_df) %in% c("positive")),])
+#top 10: message, revolting, reviews, comments, inaccuracies, critic, critique, glaring, criticised, hopefully
+#for context: negative is 0.3832212, bravo is 0.3719596 (top 10 are 0.39 to 0.48)
+
+#negative 
+negative = t(cossim_df[which(rownames(cossim_df) %in% c("negative")),])
+#top 10: coverage, imdb, inaccuracies, criticised, criticism, criticizing, proud, critique, reviews, user
+#for context: positive is 0.3832212, (top 10 are 0.40 to 0.51)
+
+#bad
+bad = t(cossim_df[which(rownames(cossim_df) %in% c("bad")),])
+#top 10: segal, criminally, horrible, tiresome, worst, snowman, terrible, awful, laughable, lousy
+#for context: lots of other bad-synonyms in top 50 (top 10 are 0.41 - 0.47)
+
 ########################## PRE-LOADING FUNCTIONS ############################
 
+#Function that returns the mean "paragraph vector"
 AverageVec = function(review, model)
 {
   #pre-process and convert to vector of words
@@ -294,6 +407,7 @@ modelidf = left_join(modelidf, unique(tfidf[,c(1,5)]), by = c("rownames" = "word
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.8076, test 0.7964847
+#IMDb (4000 train), 4000 train, 1000 test - train 0.9158, test 0.9031144
 
 #Return mean paragraph vector for 4000 reviews in train
 meantrainvec = data.frame()
@@ -313,6 +427,7 @@ for (i in 1:1000)
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.7575, test 0.7645202
+#IMDb (4000 train), 4000 train, 1000 test - train 0.865, test 0.8429655
 
 #Return max paragraph vector for 4000 reviews in train
 maxtrainvec = data.frame()
@@ -331,7 +446,8 @@ for (i in 1:1000)
 #3) MIN
 
 #results:
-#OANC, 4000 trcain, 1000 test - train 0.786, 0.7800445
+#OANC, 4000 train, 1000 test - train 0.786, 0.7800445
+#IMDb (4000 train), 4000 train, 1000 test - train 0.856, test 0.8387774
 
 #Return min paragraph vector for 4000 reviews in train
 mintrainvec = data.frame()
@@ -351,11 +467,12 @@ for (i in 1:1000)
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.7714, test 0.7590041
+#IMDb (4000 train), 4000 train, 1000 test - train 0.8758, test 0.8500136
 
 ######################### LOGISTIC REGRESSION ################################
 
-imdbtrainvec = mintrainvec + maxtrainvec
-imdbtestvec = mintestvec + maxtestvec
+imdbtrainvec = maxtrainvec + mintrainvec
+imdbtestvec = maxtestvec + mintestvec
 
 #Fit model
 library(glmnet)
@@ -380,4 +497,3 @@ print(paste("max AUC =", round(max(glmnet_classifier$cvm), 4)))
 
 preds = predict(glmnet_classifier,as.matrix(imdbtestvec),type = 'response')[,1]
 glmnet::auc(imdbtest$sentiment[1:1000], preds)
-
