@@ -11,8 +11,12 @@ The matrix is constructed through iterating through all documents in corpus, whe
 1) A one-hot vector is constructed for each unique word, which is then convolved with a smoothing gaussian function.
 2) For each unique word-pair (including identical words) present in document, dot product of convolved one-hot vectors is found.  If word-pair is not present, a value of 0 is assigned.
 
-Finally, for each unique word-pair, the dot product values for all documents are added up.  The entire matrix is then divided by the square-root of the diagonals to achieve diagonals of value 1. 
+Finally, for each unique word-pair, the dot product values across all in corpus documents are added up.  The entire matrix is then divided by the square-root of the diagonals to achieve diagonals of value 1. 
 
+| First Header  | Second Header |
+| ------------- | ------------- |
+| Content Cell  | Content Cell  |
+| Content Cell  | Content Cell  |
 
 
 
