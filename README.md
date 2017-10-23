@@ -1,5 +1,7 @@
 # wordKernel
 
+## Overview:
+
 In collaboration with Professor Chad Hazlett and Aaron Rudkin.
 
 An approach to word vectorization that represents words by their weighted proximity to other words in corpus.
@@ -13,9 +15,12 @@ The matrix is constructed through iterating through all documents in corpus, whe
 
 Finally, for each unique word-pair, the dot product values across all in corpus documents are added up.  The entire matrix is then divided by the square-root of the diagonals to achieve diagonals of value 1. 
 
-*(A quick note on L1 vs L2 regularization: L2, with squaring, punishes large values more.  Thus we have L2 optimizing for small coefficients across the board, while L1 tends to zero out some coefficients, helping perform feature selection for a sparser model.  Because L2 often does better than L1 in practice, I'll be testing with L2.)*
+A quick note on L1 vs L2 regularization:
+> L2, with squaring, punishes large values more.  Thus we have L2 optimizing for small coefficients across the board, while L1 tends to zero out some coefficients, helping perform feature selection for a sparser model.  Because L2 often does better than L1 in practice, I'll be testing with L2.
 
-**wordKernel vs tf-idf vs word2vec for IMDb movie review sentiment prediction task**
+## Results:
+
+### wordKernel vs tf-idf vs word2vec for IMDb movie review sentiment prediction task:
 
 | Aggregation | Test |
 | ------------- | ------------- |
