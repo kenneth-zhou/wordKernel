@@ -19,20 +19,58 @@ Finally, for each unique word-pair, the dot product values across all in corpus 
 
 ## Results
 
-### wordKernel vs tf-idf vs word2vec for IMDb movie review sentiment prediction task
+### wordKernel vs tf-idf vs word2vec for IMDb movie review sentiment classification
 
-| Aggregation | Test |
-| ------------- | ------------- |
-| Mean  | Content Cell  |
-| Max  | Content Cell  |
-| Min | |
-| Max/Min | | 
-| Mean, Top 30% Idf | | 
-| Max, Top 30% Idf | | 
-| Min, Top 30% Idf | | 
-| Min/Max, Top 30% Idf | | 
-| Mean, Idf | | 
-
-
-
-
+<table style="width:100%">
+  <tr>
+    <th></th>
+    <th>wordKernel</th>
+    <th>word2vec</th>
+    <th>tf-idf</th>
+  </tr>
+  <tr>
+    <td>Mean</td>
+    <td></td>
+    <td></td>
+    <td rowspan = "9"></td>
+  </tr>
+    <tr>
+    <td>Max</td>
+    <td></td>
+    <td></td>
+  </tr>
+    <tr>
+    <td>Min</td>
+    <td></td>
+    <td></td>
+  </tr>
+    <tr>
+    <td>Max/Min</td>
+    <td></td>
+    <td></td>
+  </tr>
+    <tr>
+    <td>Mean, Top 30% Idf</td>
+    <td></td>
+    <td></td>
+  </tr>
+    <tr>
+    <td>Max, Top 30% Idf</td>
+    <td></td>
+    <td></td>
+  </tr>
+    <tr>
+    <td>Min, Top 30% Idf</td>
+    <td></td>
+    <td></td>
+  </tr>
+    <tr>
+    <td>Min/Max, Top 30% Idf</td>
+    <td></td>
+    <td></td>
+  </tr>
+    <tr>
+    <td>Mean, Idf</td>
+    <td></td>
+    <td></td>
+</table>
