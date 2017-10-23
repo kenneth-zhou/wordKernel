@@ -1,6 +1,6 @@
 # wordKernel
 
-## Overview:
+## Abstract
 
 In collaboration with Professor Chad Hazlett and Aaron Rudkin.
 
@@ -17,9 +17,9 @@ Finally, for each unique word-pair, the dot product values across all in corpus 
 
 *(A quick note on L1 vs L2 regularization: L2, with squaring, punishes large values more.  Thus we have L2 optimizing for small coefficients across the board, while L1 tends to zero out some coefficients, helping perform feature selection for a sparser model.  Because L2 often does better than L1 in practice, I'll be testing with L2.)*
 
-## Results:
+## Results
 
-### wordKernel vs tf-idf vs word2vec for IMDb movie review sentiment prediction task:
+### wordKernel vs tf-idf vs word2vec for IMDb movie review sentiment prediction task
 
 | Aggregation | Test |
 | ------------- | ------------- |
