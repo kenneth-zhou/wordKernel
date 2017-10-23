@@ -30,47 +30,47 @@ Finally, for each unique word-pair, the dot product values across all in corpus 
   </tr>
   <tr>
     <td>Mean</td>
-    <td></td>
-    <td></td>
-    <td rowspan = "9"></td>
+    <td align = "center">0.9167</td>
+    <td align = "center"></td>
+    <td rowspan = "9" align = "center"></td>
   </tr>
     <tr>
     <td>Max</td>
-    <td></td>
-    <td></td>
+    <td align = "center">0.9196</td>
+    <td align = "center"></td>
   </tr>
     <tr>
     <td>Min</td>
-    <td></td>
-    <td></td>
+    <td align = "center"></td>
+    <td align = "center"></td>
   </tr>
     <tr>
     <td>Max/Min</td>
-    <td></td>
-    <td></td>
+    <td align = "center"></td>
+    <td align = "center"></td>
   </tr>
     <tr>
     <td>Mean, Top 30% Idf</td>
-    <td></td>
-    <td></td>
+    <td align = "center"></td>
+    <td align = "center"></td>
   </tr>
     <tr>
     <td>Max, Top 30% Idf</td>
-    <td></td>
-    <td></td>
+    <td align = "center"></td>
+    <td align = "center"></td>
   </tr>
     <tr>
     <td>Min, Top 30% Idf</td>
-    <td></td>
-    <td></td>
+    <td align = "center"></td>
+    <td align = "center"></td>
   </tr>
     <tr>
-    <td>Min/Max, Top 30% Idf</td>
-    <td></td>
-    <td></td>
+    <td>Max/Min, Top 30% Idf</td>
+    <td align = "center"></td>
+    <td align = "center"></td>
   </tr>
     <tr>
     <td>Mean, Idf</td>
-    <td></td>
-    <td></td>
+    <td align = "center"></td>
+    <td align = "center"></td>
 </table>
