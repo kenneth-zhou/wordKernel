@@ -70,7 +70,7 @@ Finally, for each unique word-pair, the dot product values across all in corpus 
     <td align = "center"></td>
   </tr>
     <tr>
-    <td>Mean, Idf</td>
+    <td>Mean, Idf-weighted</td>
     <td align = "center">0.9139</td>
     <td align = "center"></td>
 </table>
