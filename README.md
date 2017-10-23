@@ -19,7 +19,7 @@ Finally, for each unique word-pair, the dot product values across all in corpus 
 
 ## Results
 
-### wordKernel vs tf-idf vs word2vec for IMDb movie review sentiment classification
+### wordKernel vs word2vec vs tf-idf for IMDb movie review sentiment classification
 
 <table style="width:100%">
   <tr>
