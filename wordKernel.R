@@ -571,6 +571,75 @@ tfidf <- tfidf %>%
   bind_tf_idf(word, doc, n)
 
 
+########################## EXAMINING PRE-TRAINED VECTORS ############################
+
+#Function that returns the cosine similarity of two vectors
+CosSim = function(vector1, vector2)
+{
+  return((t(vector1) %*% (vector2))/sqrt(sum(vector1^2)*sum(vector2^2)))
+}
+
+## Returning cossine similarity, correlation for words
+cossim_df = data.frame(apply(result$distanceMatrix, 1, CosSim, vector2 = as.vector(result$distanceMatrix[which(rownames(result$distanceMatrix) %in% rownames(result$distanceMatrix)[1]),], mode = "numeric")))
+colnames(cossim_df) = rownames(result$distanceMatrix)[1]
+for (i in rownames(result$distanceMatrix)[2:length(rownames(result$distanceMatrix))])
+{
+  cossim = data.frame(apply(result$distanceMatrix, 1, CosSim, vector2 = as.vector(result$distanceMatrix[which(rownames(result$distanceMatrix) %in% i),], mode = "numeric")))
+  colnames(cossim) = i
+  cossim_df = cbind(cossim_df, cossim)
+}
+cor_df = cor(result$distanceMatrix)
+
+## IMDb (4000 train) 
+
+#movie cossim
+movie = t(cossim_df[which(rownames(cossim_df) %in% c("movie")),])
+#top 10: film, bad, watch, time, don, story, seen, movies, people, watching 
+# film is 0.344, sharp drop-off after to 0.299 for bad (0.299 - 0.227 for rest)
+
+#movie cor
+movie = data.frame(cor_df[which(rownames(cor_df) %in% c("movie")),])
+#top 10: bad, watch, film, don, seen, time, watching, movies, story, acting
+#top 10 are 0.238 - 0.15773983
+
+#girl cossim
+girl = t(cossim_df[which(rownames(cossim_df) %in% c("girl")),])
+#top 10: little, boy, meets, movie, loses, love, film, grabs, priya, guy
+#top 10 are 0.139 - 0.075 (low similarity scores altogether)
+
+#girl cor
+girl = data.frame(cor_df[which(rownames(cor_df) %in% c("girl")),])
+#top 10: boy, little, meets, loses, grabs, priya, raj, love, doll, boxer
+#top 10 are 0.117 - 0.061, blonde is 0.0607
+
+#positive cossim
+positive = t(cossim_df[which(rownames(cossim_df) %in% c("positive")),])
+#top 10: reviews, note, aspects, comments, message, film, movie, mysteriously, stunned, virtual
+#for context: negative is 0.0525 (top 10 are 0.157 to 0.055)
+
+#positive cor
+positive = data.frame(cor_df[which(rownames(cor_df) %in% c("positive")),])
+#top 10: reviews, note, aspects, comments, message, film, movie, mysteriously, stunned, virtual 
+#top 10 are 0.152 - 0.0525
+
+#negative cossim
+negative = t(cossim_df[which(rownames(cossim_df) %in% c("negative")),])
+#top 10: comments, scores, stereotype, reviews, imdb, scale, influences, rating, iq, comment
+#for context: positive is 0.0525 (top 10 are 0.179 to 0.0691)
+
+#negative cor
+negative = data.frame(cor_df[which(rownames(cor_df) %in% c("negative")),])
+#top 10: comments, scores, steoreotype, reviews, imdb, scale, influences, iq, rating, comment 
+#top 10 are 0.175 - 0.0645
+
+#bad cossim
+bad = t(cossim_df[which(rownames(cossim_df) %in% c("bad")),])
+#top 10: movie, acting, film, guys, movies, guy, isn, plot, pretty, people
+
+#bad cor
+bad = data.frame(cor_df[which(rownames(cor_df) %in% c("bad")),])
+#top 10: movie, acting, guys, film, guy, isn, movies, wasn, pretty, script
+
 ################## TOKENIZE TEST AND TRAIN DATA ################################
 
 #reading data
@@ -596,8 +665,8 @@ rownames(distancematrixidf) = colnames(distancematrixidf)[1:(ncol(distancematrix
 #1) MEAN
 
 #results:
-#OANC, 4000 train, 1000 test - train 0.8338, test 0.8315533
-#IMDB (4000 train), 4000 train, 1000 test - train 0.9238, test 0.9102906
+#OANC, 4000 train, 1000 test - max cv 0.8338, test 0.8315533
+#IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.9139, train 0.9746, test 0.9205, ridge max cv 0.9267, train 0.9917, test 0.9167
 
 #Return mean paragraph vector for 4000 reviews in train
 meantrainvec = data.frame()
@@ -619,7 +688,7 @@ colnames(meantestvec) = colnames(result$distanceMatrix)
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.8447, test 0.8497296
-#IMDB (4000 train), 4000 train, 1000 test - train 0.9208, test 0.9098346
+#IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.9138 train 0.9883, test 0.9211987, ridge max cv 0.9259, train 0.9951, test 0.9196
 
 #Return max paragraph vector for 4000 reviews in train
 maxtrainvec = data.frame()
@@ -641,6 +710,7 @@ colnames(maxtestvec) = colnames(result$distanceMatrix)
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.8245, test 0.8270452
+#IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.8739 train 0.9914 test 0.8946, ridge max cv 0.8666 train 0.9867 test 0.8943
 
 #Return min paragraph vector for 4000 reviews in train
 mintrainvec = data.frame()
@@ -662,11 +732,13 @@ colnames(mintestvec) = colnames(result$distanceMatrix)
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.8386, test 0.8497296
+#IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.9287 train 0.9951 test 0.9196
 
 #5) MEAN, TOP 30% IDF
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.7136, test 0.7081833
+#IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.8533 train 0.9778 test 0.8198
 
 #Return average top 30% idf paragraph vector for 4000 reviews in train
 meantop30trainvec = data.frame()
@@ -688,6 +760,7 @@ colnames(meantop30testvec) = colnames(result$distanceMatrix)
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.7305, test 0.7147674
+#IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.8516 train 0.9789 test 0.8208
 
 #Return max top 30% idf paragraph vector for 4000 reviews in train
 maxtop30trainvec = data.frame()
@@ -709,6 +782,7 @@ colnames(maxtop30testvec) = colnames(result$distanceMatrix)
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.6852, test 0.6665787
+#IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.7426 train 0.9687 test 0.7597
 
 #Return min top 30% idf paragraph vector for 4000 reviews in train
 mintop30trainvec = data.frame()
@@ -730,11 +804,13 @@ colnames(mintop30testvec) = colnames(result$distanceMatrix)
 
 #results: 
 #OANC, 4000 train, 1000 test - train 0.7287, test 0.7112514
+#IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.8517 train 0.9789 test 0.8211
 
 #9) MEAN, IDF-WEIGHTED
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.8335, test 0.8411735
+# IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.9250 train 0.9932 test 0.9139
 
 #Return mean idf paragraph vector for 4000 reviews in train
 meanidftrainvec = data.frame()
@@ -754,29 +830,41 @@ colnames(meanidftestvec) = colnames(result$distanceMatrix)
 
 ######################### LOGISTIC REGRESSION ################################
 
-imdbtrainvec = maxtrainvec
-imdbtestvec = maxtestvec
-
-#Fit model
 library(glmnet)
-NFOLDS = 4
-t1 = Sys.time()
-glmnet_classifier = cv.glmnet(x = as.matrix(imdbtrainvec), y = imdbtrain$sentiment[1:4000], 
-                              family = 'binomial', 
-                              # L1 penalty
+library(pROC)
+
+imdbtrainvec = meanidftrainvec
+imdbtestvec = meanidftestvec
+
+#10-fold CV to obtain optimal lambda for ridge)
+cv_model = cv.glmnet(x = as.matrix(imdbtrainvec), y = imdbtrain$sentiment[1:4000], 
+                              family = 'binomial',
+                              #supplying sequence of lambdas from 10^-3 to 10^10
+                              lambda = 10^seq(10,-3,length=300),
+                              # L2 penalty (ridge), alpha = 0
                               alpha = 0, 
-                              #lasso penalty
+                              #auc used as loss measure for cross-validation
                               type.measure = "auc",
-                              # 5-fold cross-validation
-                              nfolds = NFOLDS,
-                              # high value is less accurate, but has faster training
-                              thresh = 1e-3,
-                              # again lower number of iterations for faster training
-                              maxit = 1e3)
-print(difftime(Sys.time(), t1, units = 'sec'))6
+                              # 10-fold cross-validation
+                              nfolds = 10)
+plot(cv_model)
+print(paste("max AUC for train =", max(cv_model$cvm)))
+min_lambda = cv_model$lambda.min
 
-plot(glmnet_classifier)
-print(paste("max AUC =", round(max(glmnet_classifier$cvm), 4)))
+#fit lasso log model with optimal lambda
+logmodel = glmnet(x = as.matrix(imdbtrainvec), y = imdbtrain$sentiment[1:4000], 
+                  family = 'binomial',
+                  lambda = min_lambda,
+                  alpha = 0)
 
-preds = predict(glmnet_classifier,as.matrix(imdbtestvec),type = 'response')[,1]
-glmnet::auc(imdbtest$sentiment[1:1000], preds)
+preds = predict(logmodel, newx = as.matrix(imdbtrainvec), type = "response")[,1]
+roccurve <- roc(imdbtrain$sentiment[1:4000] ~ preds)
+plot(roccurve)
+auc(roccurve)
+
+#producing classification matrix and AUC for test
+preds.test = predict(logmodel, newx = as.matrix(imdbtestvec), type = "response")[,1]
+preds.test.labels = rep("0_predicted", length(preds.test))
+preds.test.labels[preds.test > 0.5] = "1_predicted"
+table(preds.test.labels, imdbtest$sentiment)
+glmnet::auc(imdbtest$sentiment[1:1000],preds.test)
