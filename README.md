@@ -32,7 +32,7 @@ Finally, for each unique word-pair, the dot product values across all in corpus 
     <td>Mean</td>
     <td align = "center">0.9167</td>
     <td align = "center"></td>
-    <td rowspan = "9" align = "center"></td>
+    <td rowspan = "9" align = "center">0.8597</td>
   </tr>
     <tr>
     <td>Max</td>
