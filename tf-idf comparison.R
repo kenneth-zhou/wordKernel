@@ -4,6 +4,8 @@ library(readr)
 library(SnowballC)
 library(koRpus)
 library(glmnet)
+library(glmnet)
+library(pROC)
 setwd("C:/Users/Kenneth/Desktop/wordKernel")
 
 # Shell preprocesing function
@@ -73,26 +75,37 @@ dtm_train = fit_transform(dtm_train, tfidf) # fit model to train data and transf
 dtm_test = dtm_test %>% transform(tfidf)
 
 #Fit model
-NFOLDS = 4
-t1 = Sys.time()
-glmnet_classifier = cv.glmnet(x = dtm_train, y = imdbtrain$sentiment, 
-                              family = 'binomial', 
-                              # L1 penalty
-                              alpha = 0, 
-                              #lasso penalty
-                              type.measure = "auc",
-                              # 5-fold cross-validation
-                              nfolds = NFOLDS,
-                              # high value is less accurate, but has faster training
-                              thresh = 1e-3,
-                              # again lower number of iterations for faster training
-                              maxit = 1e3)
-print(difftime(Sys.time(), t1, units = 'sec'))
+#10-fold CV to obtain optimal lambda for ridge)
+cv_model = cv.glmnet(x = dtm_train, y = imdbtrain$sentiment[1:4000], 
+                     family = 'binomial',
+                     #supplying sequence of lambdas from 10^-3 to 10^10
+                     lambda = 10^seq(10,-3,length=300),
+                     # L2 penalty (ridge), alpha = 0
+                     alpha = 0, 
+                     #auc used as loss measure for cross-validation
+                     type.measure = "auc",
+                     # 10-fold cross-validation
+                     nfolds = 10)
+plot(cv_model)
+print(paste("max AUC for train =", max(cv_model$cvm)))
+min_lambda = cv_model$lambda.min
 
-plot(glmnet_classifier)
-print(paste("max AUC =", round(max(glmnet_classifier$cvm), 4)))
+#fit lasso log model with optimal lambda
+logmodel = glmnet(x = as.matrix(dtm_train), y = imdbtrain$sentiment[1:4000], 
+                  family = 'binomial',
+                  lambda = min_lambda,
+                  alpha = 0)
 
-preds = predict(glmnet_classifier,dtm_test,type = 'response')[,1]
-glmnet::auc(imdbtest$sentiment, preds)
+preds = predict(logmodel, newx = as.matrix(dtm_train), type = "response")[,1]
+roccurve <- roc(imdbtrain$sentiment[1:4000] ~ preds)
+plot(roccurve)
+auc(roccurve)
 
-#train 0.8668 test 0.8530816
+#producing classification matrix and AUC for test
+preds.test = predict(logmodel, newx = as.matrix(dtm_test), type = "response")[,1]
+preds.test.labels = rep("0_predicted", length(preds.test))
+preds.test.labels[preds.test > 0.5] = "1_predicted"
+table(preds.test.labels, imdbtest$sentiment)
+glmnet::auc(imdbtest$sentiment[1:1000],preds.test)
+
+#max train 0.876, test 0.8597
