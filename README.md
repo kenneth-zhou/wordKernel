@@ -31,23 +31,23 @@ Finally, for each unique word-pair, the dot product values across all in corpus 
   <tr>
     <td>Mean</td>
     <td align = "center">0.9167</td>
-    <td align = "center"></td>
+    <td align = "center">0.9041</td>
     <td rowspan = "9" align = "center">0.8597</td>
   </tr>
     <tr>
     <td>Max</td>
     <td align = "center">0.9196</td>
-    <td align = "center"></td>
+    <td align = "center">0.8498</td>
   </tr>
     <tr>
     <td>Min</td>
     <td align = "center">0.8943</td>
-    <td align = "center"></td>
+    <td align = "center">0.8541</td>
   </tr>
     <tr>
     <td>Max/Min</td>
     <td align = "center">0.9196</td>
-    <td align = "center"></td>
+    <td align = "center">0.8621</td>
   </tr>
     <tr>
     <td>Mean, Top 30% Idf</td>
