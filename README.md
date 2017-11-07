@@ -23,11 +23,9 @@ Finally, for each unique word-pair, the dot product values across all in corpus 
 
 #### Sentiment Classification with Regularized Logistic Regression
 
-Generated paragraph embeddings through multiple methods, referencing: https://arxiv.org/pdf/1607.00570.pdf
+Generated paragraph embeddings through multiple methods, referencing: https://arxiv.org/pdf/1607.00570.pdf.  wordKernel, word2vec and tf-idf word embeddings are pre-trained on 4000 IMDb reviews.  L2 (ridge) logistic regression models are then trained on paragraph embeddings of the same 4000 reviews, before being tested on 1000 reviews.  AUC values are shown below.
 
 *(A quick note on L1 vs L2 regularization for logistic regression: L2, with squaring, punishes large values more.  Thus we have L2 optimizing for small coefficients across the board, while L1 tends to zero out some coefficients, helping perform feature selection for a sparser model.  Because L2 often does better than L1 in practice, I'll be testing with L2.)*
-
-**AUC:**
 
 <table style="width:100%">
   <tr>
