@@ -21,6 +21,41 @@ Finally, for each unique word-pair, the dot product values across all corpus doc
 
 #### Word embeddings
 
+Pre-trained on 4000 IMDb reviews.  Based on cossine similarity, top 10 most similar words:
+
+<table style="width:100%">
+  <tr>
+    <th></th>
+    <th>wordKernel</th>
+    <th>word2vec</th>
+  </tr>
+  <tr>
+    <td>Movie</td>
+    <td align = "center">film, bad, watch, time, don, story, seen, movies, people, watching </td>
+    <td align = "center">movies, popcorn, segal, lungren, rgv, anytime, fingernails, commented, cringed, rainy</td>
+  </tr>
+    <tr>
+    <td>Girl</td>
+    <td align = "center">little, boy, meets, movie, loses, love, film, grabs, priya, guy</td>
+    <td align = "center">paulie, madly, meets, marie, boy, withdrawn, pauline, array, longed, salesman</td>
+  </tr>
+    <tr>
+    <td>Positive</td>
+    <td align = "center">reviews, note, aspects, comments, message, film, movie, mysteriously, stunned, virtual</td>
+    <td align = "center">message, revolting, reviews, comments, inaccuracies, critic, critique, glaring, criticised, hopefully</td>
+  </tr>
+    <tr>
+    <td>Negative</td>
+    <td align = "center">comments, scores, stereotype, reviews, imdb, scale, influences, rating, iq, comment</td>
+    <td align = "center">coverage, imdb, inaccuracies, criticised, criticism, criticizing, proud, critique, reviews, user</td>
+  </tr>
+    <tr>
+    <td>Bad</td>
+    <td align = "center">movie, acting, film, guys, movies, guy, isn, plot, pretty, people</td>
+    <td align = "center">segal, criminally, horrible, tiresome, worst, snowman, terrible, awful, laughable, lousy</td>
+  </tr>
+</table>
+
 #### Sentiment Classification with Regularized Logistic Regression
 
 Generated paragraph embeddings through multiple methods, referencing: https://arxiv.org/pdf/1607.00570.pdf.  wordKernel, word2vec and tf-idf word embeddings are pre-trained on 4000 IMDb reviews.  L2 (ridge) logistic regression models are then trained on paragraph embeddings of the same 4000 reviews, before being tested on 1000 reviews.  AUC values are shown below.
