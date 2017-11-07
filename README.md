@@ -17,7 +17,11 @@ Finally, for each unique word-pair, the dot product values across all in corpus 
 
 ## Results
 
-### IMDb movie review sentiment classification
+### IMDb movie reviews
+
+#### Word embeddings
+
+#### Sentiment Classification with Regularized Logistic Regression
 
 *(A quick note on L1 vs L2 regularization for logistic regression: L2, with squaring, punishes large values more.  Thus we have L2 optimizing for small coefficients across the board, while L1 tends to zero out some coefficients, helping perform feature selection for a sparser model.  Because L2 often does better than L1 in practice, I'll be testing with L2.)*
 
