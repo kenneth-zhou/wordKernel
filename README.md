@@ -27,6 +27,8 @@ Generated paragraph embeddings through multiple methods, referencing: https://ar
 
 *(A quick note on L1 vs L2 regularization for logistic regression: L2, with squaring, punishes large values more.  Thus we have L2 optimizing for small coefficients across the board, while L1 tends to zero out some coefficients, helping perform feature selection for a sparser model.  Because L2 often does better than L1 in practice, I'll be testing with L2.)*
 
+**AUC:**
+
 <table style="width:100%">
   <tr>
     <th></th>
