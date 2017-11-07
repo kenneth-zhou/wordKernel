@@ -1,19 +1,4 @@
-############################ LIBRARIES #####################################
-
-require(signal) # Convolution
-require(readr) # Read text file
-require(utils) # txtProgressBar
-require(SnowballC) #stemming
-require(koRpus) #lemmatizing
-library(dplyr)
-library(tidytext)
-
-############################## WORKING DIRECTORY ###########################
-
-setwd("C:/Users/Kenneth/Desktop/wordKernel")
-
-########################## PRE-LOADING FUNCTIONS ############################
-
+######################## PRE-PROCESSING FUNCTION ###########################
 # Shell preprocesing function
 preProcessDocument = function(document, stripPunc=TRUE, stripDigits = TRUE, lowercase=TRUE, stopWord=TRUE, stripExcessWhitespace = TRUE, lemmatize=FALSE, stem = FALSE)
 {
@@ -39,516 +24,84 @@ preProcessDocument = function(document, stripPunc=TRUE, stripDigits = TRUE, lowe
   if (stem & document != "" & document != " ") document = paste(wordStem(strsplit(document, split = " ")[[1]]), collapse = " ")
   return(document)
 }
+######################### PRE-LOAD + PRE-TRAIN OANC #####################################
 
-# Process a document in the corpus.
-processDocument = function(document, splitBySentences=TRUE, bscale=8, 
-                           distanceMatrix, scalingMatrix, rareWordCorrection=FALSE)
+## source: https://github.com/bmschmidt/wordVectors
+## packages to install
+# library(devtools)
+#install_github("bmschmidt/wordVectors")
+
+#loading packages
+library(wordVectors)
+library(stringi)
+library(readr)
+library(dplyr)
+
+#prepare text for word2vec
+#what it does:
+#1) create single text file with contents of all documents
+#2) clean and lowercase original text
+#3) option to do n-grams (bundle_ngrams = ?)
+
+setwd("C:/Users/Kenneth/Desktop/wordKernel/Datasets")
+prep_word2vec(origin="OANC_subset_310",destination="word2vec_OANC_subset_310.txt",lowercase=T,bundle_ngrams=1)
+
+#train model
+if (!file.exists("word2vec_vectors.bin")) {model = train_word2vec("word2vec_OANC_subset_310.txt","word2vec_vectors.bin",vectors=500,threads=7,window=12,iter=5,negative_samples=5)} else model = read.vectors("word2vec_vectors.bin")
+
+#train-test IMdb
+setwd("C:/Users/Kenneth/Desktop/wordKernel")
+imdbdata = read_tsv("Datasets/IMDb/IMDBlabeledtrain.tsv")
+imdbtest = imdbdata[20001:24722,2:3]
+imdbtrain = imdbdata[1:20000,2:3]
+
+######################### PRE-LOAD + PRE-TRAIN IMDB #####################################
+
+## source: https://github.com/bmschmidt/wordVectors
+## packages to install
+# library(devtools)
+#install_github("bmschmidt/wordVectors")
+
+#loading packages
+library(wordVectors)
+library(stringi)
+library(readr)
+library(dplyr)
+
+#prepare text for word2vec
+#what it does:
+#1) create single text file with contents of all documents
+#2) clean and lowercase original text
+#3) option to do n-grams (bundle_ngrams = ?)
+
+#IMdb
+setwd("C:/Users/Kenneth/Desktop/wordKernel")
+imdbdata = read_tsv("Datasets/IMDb/IMDBlabeledtrain.tsv")
+imdbtest = imdbdata[20001:21000,2:3]
+imdbtrain = imdbdata[1:4000,2:3]
+
+#preparing IMDb documents for word2vec pre-training
+imdbcorpus = imdbtrain$review
+setwd("C:/Users/Kenneth/Desktop/wordKernel/Datasets/IMDb/word2vec")
+
+for (i in 1:length(imdbcorpus))
 {
-  document = gsub("[\r\n]", " ", document) 
-  
-  # We have a single document, let's distance it
-  
-  # Pre-process document here
-  wordVec = strsplit(preProcessDocument(document, lemmatize = FALSE, stem = FALSE), " ")[[1]]
-  
-  # Strip out unique words to make loops more efficient
-  uniqueWordVec = sort(unique(wordVec))
-  # Remove empty words
-  uniqueWordVec = uniqueWordVec[which(nchar(uniqueWordVec)>0)]
-  
-  #remove below: no longer neccesary because of minwordprevalence:
-  # if(length(setdiff(uniqueWordVec, colnames(distanceMatrix))))
-  # {
-  #   stop("Word appears in individual document that did not appear in Corpus. Stopwording error?")
-  # }
-  
-  print(paste0("Convolving document. Document length ", length(uniqueWordVec), " unique words and ", length(wordVec), " total words"))
-  fullCorpusWordSet = colnames(distanceMatrix)
-  # Base for stick representations of stuff we will convolve
-  baseVector = rep(0,length(wordVec))
-  smooth_gaussian=sapply(X = seq(-5,5), function(x) exp(-x^2/bscale))
-  get_smooth_len = length(conv(rep(1,length(wordVec)), smooth_gaussian))
-  # Stub 0-vector for anything that doesn't appear in the document
-  stub = rep(0,get_smooth_len)
-  
-  initialSmoothing = matrix(NA, ncol=length(fullCorpusWordSet), nrow=get_smooth_len)
-  pb = txtProgressBar(min=1,max=length(fullCorpusWordSet),initial=1, style=3)
-  for(i in seq(1, length(fullCorpusWordSet)))
-  {
-    word = fullCorpusWordSet[i]
-    if(!(word %in% uniqueWordVec)) { initialSmoothing[,i] = stub }
-    else 
-    { 
-      stick = baseVector
-      stick[which(wordVec==word)]=1
-      initialSmoothing[,i] = conv(stick, smooth_gaussian) 
-    }
-    setTxtProgressBar(pb, i)
-  }
-  
-  cat("\n")
-  print("Done initial convolution, now adding document-level distance matrix")
-  kTop = t(initialSmoothing) %*% initialSmoothing
-  
-  # Add the new distanceMatrix to the old one, element-wise
-  distanceMatrix = distanceMatrix + kTop
-  
-  if(rareWordCorrection)
-  {
-    print("Rare word correction applied, calculating scaling factor matrix.")
-    kBottom = sqrt(diag(kTop))
-    pb = txtProgressBar(min=1,max=length(uniqueWordVec)-1,initial=1, style=3)
-    for(i in seq(1, length(uniqueWordVec)-1))
-    {
-      setTxtProgressBar(pb, i)
-      w1 = uniqueWordVec[i][1]
-      for(j in seq(i, length(uniqueWordVec)))
-      {
-        w2 = uniqueWordVec[j][1]
-        # Add scaling inner product to denominator.
-        scalingMatrix[w1, w2] = scalingMatrix[w1, w2] + (kBottom[i] %*% kBottom[j])
-      }
-    }
-    cat("\n")
-  }
-  
-  # Return distance Matrix
-  return(list("distanceMatrix"=distanceMatrix, "scalingMatrix"=scalingMatrix))
+  writeLines(preProcessDocument(imdbcorpus[i]),paste("documents/",i,".txt", sep =""))
 }
 
-processCorpus = function(corpus, bscale=8, minwordprevalence=1, rareWordCorrection=FALSE)
-{
-  print("Prepping corpus...")
-  
-  # Pre-allocate matrix so we never need to resize it again
-  # First, read all documents into a string
-  corpusString = ""
-  for(document in corpus) { corpusString = paste(corpusString, sep = " ", read_file(document)) }
-  corpusString = gsub("[\r\n]", " ", corpusString)
-  corpusString = gsub("\\. "," ", corpusString)
-  corpusWordVec = strsplit(preProcessDocument(corpusString, lemmatize = FALSE, stem = FALSE), " ")[[1]]
-  rm(corpusString) #removes corpusString (no longer needed)
-  corpusWordVec = names(table(corpusWordVec))[table(corpusWordVec) >= minwordprevalence]
-  corpusUniqueWordVec = sort(unique(corpusWordVec))
-  rm(corpusWordVec) #removes corpusWordVec (no longer needed)
-  corpusUniqueWordVec = corpusUniqueWordVec[which(nchar(corpusUniqueWordVec)>0)] #removes empty words
-  
-  # Now, create the corpus distance matrix, and the corpus co-occurrence matrix
-  distanceMatrix = matrix(0, nrow=length(corpusUniqueWordVec), ncol=length(corpusUniqueWordVec))
-  
-  
-  colnames(distanceMatrix) = corpusUniqueWordVec 
-  
-  rownames(distanceMatrix) = corpusUniqueWordVec
-  scalingMatrix = distanceMatrix
-  
-  print("Corpus Distance Matrix ready...")
-  
-  # Iterate through Corpus filename
-  for(document in corpus)
-  {
-    print(paste0("Reading document ", document))
-    # Need to robustify file read, but for now just assume it's a text and read using readr
-    docString = read_file(document)
-    result = processDocument(docString, bscale=bscale, 
-                             distanceMatrix=distanceMatrix, scalingMatrix=scalingMatrix,
-                             rareWordCorrection=rareWordCorrection)
-    
-    # Back-copy the results to feed forward to the next document
-    distanceMatrix = result$distanceMatrix
-    scalingMatrix = result$scalingMatrix
-  }
-  print("Read all corpus distances, now scaling...")
-  
-  if(rareWordCorrection) 
-  {
-    scalingMatrix = scalingMatrix + t(scalingMatrix)
-    scalingMatrix[scalingMatrix==0] = 1
-    distanceMatrix = distanceMatrix / scalingMatrix
-  }
-  else
-  {
-    scalingVec = unname(sqrt(diag(distanceMatrix)))
-    newScalingMatrix = scalingVec %*% t(scalingVec)
-    distanceMatrix = distanceMatrix / newScalingMatrix
-  }
-  
-  # Return results
-  return(list("distanceMatrix" = distanceMatrix, "scalingMatrix" = scalingMatrix, 
-              "uniqueWords" = corpusUniqueWordVec, 
-              "method" = ifelse(rareWordCorrection, "Rare Word Correction", "Standard")))
-}
+prep_word2vec(origin="documents",destination="word2vec_prepped.txt",lowercase=T,bundle_ngrams=1)
 
-processCorpuslocal = function(corpus, bscale=8, minwordprevalence=1, rareWordCorrection=FALSE)
-{
-  print("Prepping corpus...")
-  
-  # Pre-allocate matrix so we never need to resize it again
-  # First, read all documents into a string
-  corpusString = ""
-  for(document in corpus) { corpusString = paste(corpusString, sep = " ", document) }
-  corpusString = gsub("[\r\n]", " ", corpusString)
-  corpusString = gsub("\\. "," ", corpusString)
-  corpusWordVec = strsplit(preProcessDocument(corpusString, lemmatize = FALSE, stem = FALSE), " ")[[1]]
-  rm(corpusString) #removes corpusString (no longer needed)
-  corpusWordVec = names(table(corpusWordVec))[table(corpusWordVec) >= minwordprevalence]
-  corpusUniqueWordVec = sort(unique(corpusWordVec))
-  rm(corpusWordVec) #removes corpusWordVec (no longer needed)
-  corpusUniqueWordVec = corpusUniqueWordVec[which(nchar(corpusUniqueWordVec)>0)] #removes empty words
-  
-  # Now, create the corpus distance matrix, and the corpus co-occurrence matrix
-  distanceMatrix = matrix(0, nrow=length(corpusUniqueWordVec), ncol=length(corpusUniqueWordVec))
-  
-  
-  colnames(distanceMatrix) = corpusUniqueWordVec 
-  
-  rownames(distanceMatrix) = corpusUniqueWordVec
-  scalingMatrix = distanceMatrix
-  
-  print("Corpus Distance Matrix ready...")
-  
-  # Iterate through Corpus filename
-  for(document in corpus)
-  {
-    docString = document
-    result = processDocument(docString, bscale=bscale, 
-                             distanceMatrix=distanceMatrix, scalingMatrix=scalingMatrix,
-                             rareWordCorrection=rareWordCorrection)
-    
-    # Back-copy the results to feed forward to the next document
-    distanceMatrix = result$distanceMatrix
-    scalingMatrix = result$scalingMatrix
-  }
-  print("Read all corpus distances, now scaling...")
-  
-  if(rareWordCorrection) 
-  {
-    scalingMatrix = scalingMatrix + t(scalingMatrix)
-    scalingMatrix[scalingMatrix==0] = 1
-    distanceMatrix = distanceMatrix / scalingMatrix
-  }
-  else
-  {
-    scalingVec = unname(sqrt(diag(distanceMatrix)))
-    newScalingMatrix = scalingVec %*% t(scalingVec)
-    distanceMatrix = distanceMatrix / newScalingMatrix
-  }
-  
-  # Return results
-  return(list("distanceMatrix" = distanceMatrix, "scalingMatrix" = scalingMatrix, 
-              "uniqueWords" = corpusUniqueWordVec, 
-              "method" = ifelse(rareWordCorrection, "Rare Word Correction", "Standard")))
-}
-
-#Function that returns the average "paragraph vector"
-AverageVec = function(review, distanceMatrix)
-{
-  #pre-process and convert to vector of words
-  reviewWordVec = strsplit(preProcessDocument(review, lemmatize = FALSE, stem = FALSE), " ")[[1]]
-  
-  #counter for number of words
-  nwords = 0
-  
-  #empty vector
-  totalvec = rep(0, length(colnames(distanceMatrix)))
-  
-  #adding up each vector
-  for (i in reviewWordVec)
-  {
-    if (i %in% colnames(distanceMatrix))
-    {
-      totalvec = totalvec + distanceMatrix[,which(colnames(distanceMatrix) %in% i)]
-      nwords = nwords + 1 
-    }
-  }
-  
-  #average vector
-  averagevec = totalvec/nwords
-  
-  return(averagevec)
-}
-
-#Function that returns the max "paragraph vector"
-MaxVec = function(review, distanceMatrix)
-{
-  #pre-process and convert to vector of words
-  reviewWordVec = strsplit(preProcessDocument(review, lemmatize = FALSE, stem = FALSE), " ")[[1]]
-  
-  ## adding each word vector row-wise to a dataframe
-  
-  # create empty data frame
-  totalvec = data.frame()
-  
-  #collecting each word vector into a dataframe
-  for (i in reviewWordVec)
-  {
-    if (i %in% colnames(distanceMatrix))
-    {
-      totalvec = bind_rows(totalvec, data.frame(matrix(distanceMatrix[,which(colnames(distanceMatrix) %in% i),],nrow=1)))
-    }
-  }
-  
-  #taking the max across each column to get maxvec
-  maxvec = apply(totalvec, 2, max, na.rm = TRUE)
-  
-  return(maxvec)
-}
-
-#Function that returns the min "paragraph vector"
-MinVec = function(review, distanceMatrix)
-{
-  #pre-process and convert to vector of words
-  reviewWordVec = strsplit(preProcessDocument(review, lemmatize = FALSE, stem = FALSE), " ")[[1]]
-  
-  ## adding each word vector row-wise to a dataframe
-  
-  # create empty data frame
-  totalvec = data.frame()
-  
-  #collecting each word vector into a dataframe
-  for (i in reviewWordVec)
-  {
-    if (i %in% colnames(distanceMatrix))
-    {
-      totalvec = bind_rows(totalvec, data.frame(matrix(distanceMatrix[,which(colnames(distanceMatrix) %in% i),],nrow=1)))
-    }
-  }
-  
-  #taking the min across each column to get minvec
-  minvec = apply(totalvec, 2, min, na.rm = TRUE)
-  
-  return(minvec)
-}
-
-#Function that returns the average "paragraph vector" for top 30% idf
-AverageVecTop30 = function(review, distancematrixidf)
-{
-  #pre-process and convert to vector of words
-  reviewWordVec = strsplit(preProcessDocument(review, lemmatize = FALSE, stem = FALSE), " ")[[1]]
-  
-  ## adding each word vector row-wise to a dataframe
-  
-  ## 1) collect each word and corresponding idf value, keep top 30%
-  
-  #create empty data frame
-  wordidf = data.frame()
-  
-  #collecting each word idf into a dataframe
-  for (i in reviewWordVec)
-  {
-    if (i %in% rownames(distancematrixidf))
-    {
-      #keeping last 2 columns: word name and idf value
-      wordidf = bind_rows(wordidf, distancematrixidf[which(rownames(distancematrixidf) %in% i),(ncol(distancematrixidf)-1):ncol(distancematrixidf)])
-    }
-  }
-  
-  wordidf = wordidf[order(wordidf$idf, decreasing = TRUE),]
-  wordidf = wordidf[1:round((0.3*nrow(wordidf))),]
-  
-  ## 2) taking top 30 words and getting average vector
-  
-  #counter for number of words
-  nwords = 0
-  
-  #empty vector
-  totalvec = rep(0, length(colnames(distancematrixidf)) - 2)
-  
-  #adding up each vector
-  for (i in wordidf$rownames)
-  {
-    if (i %in% colnames(distancematrixidf))
-    {
-      totalvec = totalvec + distancematrixidf[,which(colnames(distancematrixidf) %in% i)]
-      nwords = nwords + 1 
-    }
-  }
-  
-  #average vector
-  averagevec = totalvec/nwords
-  return(averagevec)
-}
-
-#Function that returns the max "paragraph vector" for top 30% idf
-MaxVecTop30 = function(review, distancematrixidf)
-{
-  #pre-process and convert to vector of words
-  reviewWordVec = strsplit(preProcessDocument(review, lemmatize = FALSE, stem = FALSE), " ")[[1]]
-  
-  ## adding each word vector row-wise to a dataframe
-  
-  ## 1) collect each word and corresponding idf value, keep top 30%
-  
-  #create empty data frame
-  wordidf = data.frame()
-  
-  #collecting each word idf into a dataframe
-  for (i in reviewWordVec)
-  {
-    if (i %in% rownames(distancematrixidf))
-    {
-      #keeping last 2 columns: word name and idf value
-      wordidf = bind_rows(wordidf, distancematrixidf[which(rownames(distancematrixidf) %in% i),(ncol(distancematrixidf)-1):ncol(distancematrixidf)])
-    }
-  }
-  
-  wordidf = wordidf[order(wordidf$idf, decreasing = TRUE),]
-  wordidf = wordidf[1:round((0.3*nrow(wordidf))),]
-  
-  ## 2) taking top 30 words and getting max vector
-  
-  # create empty data frame
-  totalvec = data.frame()
-  
-  #collecting each word vector into a dataframe
-  for (i in wordidf$rownames)
-  {
-    if (i %in% colnames(distancematrixidf))
-    {
-      totalvec = bind_rows(totalvec, data.frame(matrix(distancematrixidf[,which(colnames(distancematrixidf) %in% i),],nrow=1)))
-    }
-  }
-  
-  #taking the max across each column to get maxvec
-  maxvec = apply(totalvec, 2, max, na.rm = TRUE)
-  
-  return(maxvec)
-}
-
-#Function that returns the min "paragraph vector" for top 30% idf
-MinVecTop30 = function(review, distancematrixidf)
-{
-  #pre-process and convert to vector of words
-  reviewWordVec = strsplit(preProcessDocument(review, lemmatize = FALSE, stem = FALSE), " ")[[1]]
-  
-  ## adding each word vector row-wise to a dataframe
-  
-  ## 1) collect each word and corresponding idf value, keep top 30%
-  
-  #create empty data frame
-  wordidf = data.frame()
-  
-  #collecting each word idf into a dataframe
-  for (i in reviewWordVec)
-  {
-    if (i %in% rownames(distancematrixidf))
-    {
-      #keeping last 2 columns: word name and idf value
-      wordidf = bind_rows(wordidf, distancematrixidf[which(rownames(distancematrixidf) %in% i),(ncol(distancematrixidf)-1):ncol(distancematrixidf)])
-    }
-  }
-  
-  wordidf = wordidf[order(wordidf$idf, decreasing = TRUE),]
-  wordidf = wordidf[1:round((0.3*nrow(wordidf))),]
-  
-  ## 2) taking top 30 words and getting min vector
-  
-  # create empty data frame
-  totalvec = data.frame()
-  
-  #collecting each word vector into a dataframe
-  for (i in wordidf$rownames)
-  {
-    if (i %in% colnames(distancematrixidf))
-    {
-      totalvec = bind_rows(totalvec, data.frame(matrix(distancematrixidf[,which(colnames(distancematrixidf) %in% i),],nrow=1)))
-    }
-  }
-  
-  #taking the min across each column to get minvec
-  minvec = apply(totalvec, 2, min, na.rm = TRUE)
-  
-  return(minvec)
-}
-
-#Function that returns the average "paragraph vector" weighted by idf values
-MeanIdf = function(review, distancematrixidf)
-{
-  #pre-process and convert to vector of words
-  reviewWordVec = strsplit(preProcessDocument(review, lemmatize = FALSE, stem = FALSE), " ")[[1]]
-  
-  #counter for number of words
-  nwords = 0
-  
-  #empty vector
-  totalvec = rep(0, length(colnames(distancematrixidf)) - 2)
-  
-  #adding up each vector
-  for (i in reviewWordVec)
-  {
-    if (i %in% colnames(distancematrixidf))
-    {
-      totalvec = totalvec + (distancematrixidf[,which(colnames(distancematrixidf) %in% i)] * distancematrixidf[which(rownames(distancematrixidf) %in% i),ncol(distancematrixidf)])
-      nwords = nwords + 1 
-    }
-  }
-  
-  #average vector
-  averagevec = totalvec/nwords
-  
-  return(averagevec)
-}
-
-###################### PRE-TRAIN WORD EMBEDDINGS ON OANC #################################
-
-## PRE-TRAIN WORD EMBEDDINGS ON OANC
-
-# obtain list of all corpus's file names
-files <- list.files(path="Datasets/OANC_subset_310", pattern="*.txt", full.names=T, recursive=FALSE)
-#Processing corpus
-result = processCorpus(files, minwordprevalence =)
+#train model
+if (!file.exists("word2vec_vectors.bin")) {model = train_word2vec("word2vec_prepped.txt","word2vec_vectors.bin",vectors=500,threads=7,window=12,iter=5)} else model = read.vectors("word2vec_vectors.bin")
 
 ## GET IDF VALUES OF WORD EMBEDDINGS
 
 # create empty data frame
 tfidf = data.frame() 
-
-# populate data frame: each row corresponds to a word (non-unique) from the corpus
-# word's document origin also included
-for(document in files) {
-  docstring <- read_file(document) %>%
-              gsub("[\r\n]", " ", .) %>%
-              gsub("\\. "," ", .)
-  docstring <- strsplit(preProcessDocument(docstring, lemmatize = FALSE, stem = FALSE), " ")[[1]] 
-  docstring <- docstring[which(nchar(docstring)>0)]
-  docstring <- data.frame(matrix(docstring, ncol = 1), stringsAsFactors = FALSE)
-  colnames(docstring) <- c("V1")
-  doc <- docstring %>%
-      unnest_tokens(word, V1) %>%
-      cbind(data.frame(rep(document,nrow(.)))) %>%
-      setNames(c("word","doc")) 
-  tfidf = rbind(tfidf, doc)
-}
-
-# create tf-idf matrix for corpus
-tfidf <- tfidf %>% 
-      count(word, doc, sort = TRUE) %>% ## word count per document
-      ungroup() %>%
-      bind_tf_idf(word, doc, n)
-
-###################### PRE-TRAIN WORD EMBEDDINGS ON IMDB #################################
-
-## PRE-TRAIN WORD EMBEDDINGS ON IMDB
-
-# read all IMDb reviews
-#all available data
-#imdb1 = read_tsv("Datasets/IMDb/IMDBlabeledtrain.tsv")
-#imdb2 = read_tsv("Datasets/IMDb/IMDBunlabeledtrain.tsv")
-#imdb3 = read_tsv("Datasets/IMDb/IMDBtest.tsv")
-#imdbcorpus = rbind(imdb1[,3],imdb2[,2],imdb3[,2])
-#rm(imdb1)
-#rm(imdb2)
-#rm(imdb3)
 
 #just pre-train on 4000 train
 imdbcorpus = read_tsv("Datasets/IMDb/IMDBlabeledtrain.tsv")
 imdbcorpus = imdbcorpus$review[1:4000]
-result = processCorpuslocal(imdbcorpus, minwordprevalence = 10)
-
-## GET IDF VALUES OF WORD EMBEDDINGS
-
-# create empty data frame
-tfidf = data.frame() 
 
 # populate data frame: each row corresponds to a word (non-unique) from the corpus
 # word's document origin also included
@@ -570,7 +123,6 @@ tfidf <- tfidf %>%
   ungroup() %>%
   bind_tf_idf(word, doc, n)
 
-
 ########################## EXAMINING PRE-TRAINED VECTORS ############################
 
 #Function that returns the cosine similarity of two vectors
@@ -579,75 +131,296 @@ CosSim = function(vector1, vector2)
   return((t(vector1) %*% (vector2))/sqrt(sum(vector1^2)*sum(vector2^2)))
 }
 
-## Returning cossine similarity, correlation for words
-cossim_df = data.frame(apply(result$distanceMatrix, 1, CosSim, vector2 = as.vector(result$distanceMatrix[which(rownames(result$distanceMatrix) %in% rownames(result$distanceMatrix)[1]),], mode = "numeric")))
-colnames(cossim_df) = rownames(result$distanceMatrix)[1]
-for (i in rownames(result$distanceMatrix)[2:length(rownames(result$distanceMatrix))])
+## Returning cossine similarity for words
+cossim_df = data.frame(apply(model, 1, CosSim, vector2 = as.vector(model[which(rownames(model) %in% rownames(model)[1]),], mode = "numeric")))
+colnames(cossim_df) = rownames(model)[1]
+for (i in rownames(model)[2:length(rownames(model))])
 {
-  cossim = data.frame(apply(result$distanceMatrix, 1, CosSim, vector2 = as.vector(result$distanceMatrix[which(rownames(result$distanceMatrix) %in% i),], mode = "numeric")))
+  cossim = data.frame(apply(model, 1, CosSim, vector2 = as.vector(model[which(rownames(model) %in% i),], mode = "numeric")))
   colnames(cossim) = i
   cossim_df = cbind(cossim_df, cossim)
 }
-cor_df = cor(result$distanceMatrix)
 
 ## IMDb (4000 train) 
 
-#movie cossim
+#movie
 movie = t(cossim_df[which(rownames(cossim_df) %in% c("movie")),])
-#top 10: film, bad, watch, time, don, story, seen, movies, people, watching 
-# film is 0.344, sharp drop-off after to 0.299 for bad (0.299 - 0.227 for rest)
+#top 10: movies, popcorn, segal, lungren, rgv, anytime, fingernails, commented, cringed, rainy
+#for context: film is 0.2955446 (top 10 are 0.36 - 0.40)
 
-#movie cor
-movie = data.frame(cor_df[which(rownames(cor_df) %in% c("movie")),])
-#top 10: bad, watch, film, don, seen, time, watching, movies, story, acting
-#top 10 are 0.238 - 0.15773983
-
-#girl cossim
+#girl
 girl = t(cossim_df[which(rownames(cossim_df) %in% c("girl")),])
-#top 10: little, boy, meets, movie, loses, love, film, grabs, priya, guy
-#top 10 are 0.139 - 0.075 (low similarity scores altogether)
+#top 10: paulie, madly, meets, marie, boy, withdrawn, pauline, array, longed, salesman
+#for context: brunette is 0.400378, blonde is 0.3895242, bride is 0.3645643, girls is 0.3542498 (top 10 are 0.40-0.54)
 
-#girl cor
-girl = data.frame(cor_df[which(rownames(cor_df) %in% c("girl")),])
-#top 10: boy, little, meets, loses, grabs, priya, raj, love, doll, boxer
-#top 10 are 0.117 - 0.061, blonde is 0.0607
-
-#positive cossim
+#positive
 positive = t(cossim_df[which(rownames(cossim_df) %in% c("positive")),])
-#top 10: reviews, note, aspects, comments, message, film, movie, mysteriously, stunned, virtual
-#for context: negative is 0.0525 (top 10 are 0.157 to 0.055)
+#top 10: message, revolting, reviews, comments, inaccuracies, critic, critique, glaring, criticised, hopefully
+#for context: negative is 0.3832212, bravo is 0.3719596 (top 10 are 0.39 to 0.48)
 
-#positive cor
-positive = data.frame(cor_df[which(rownames(cor_df) %in% c("positive")),])
-#top 10: reviews, note, aspects, comments, message, film, movie, mysteriously, stunned, virtual 
-#top 10 are 0.152 - 0.0525
-
-#negative cossim
+#negative 
 negative = t(cossim_df[which(rownames(cossim_df) %in% c("negative")),])
-#top 10: comments, scores, stereotype, reviews, imdb, scale, influences, rating, iq, comment
-#for context: positive is 0.0525 (top 10 are 0.179 to 0.0691)
+#top 10: coverage, imdb, inaccuracies, criticised, criticism, criticizing, proud, critique, reviews, user
+#for context: positive is 0.3832212, (top 10 are 0.40 to 0.51)
 
-#negative cor
-negative = data.frame(cor_df[which(rownames(cor_df) %in% c("negative")),])
-#top 10: comments, scores, steoreotype, reviews, imdb, scale, influences, iq, rating, comment 
-#top 10 are 0.175 - 0.0645
-
-#bad cossim
+#bad
 bad = t(cossim_df[which(rownames(cossim_df) %in% c("bad")),])
-#top 10: movie, acting, film, guys, movies, guy, isn, plot, pretty, people
+#top 10: segal, criminally, horrible, tiresome, worst, snowman, terrible, awful, laughable, lousy
+#for context: lots of other bad-synonyms in top 50 (top 10 are 0.41 - 0.47)
 
-#bad cor
-bad = data.frame(cor_df[which(rownames(cor_df) %in% c("bad")),])
-#top 10: movie, acting, guys, film, guy, isn, movies, wasn, pretty, script
+########################## PRE-LOADING FUNCTIONS ############################
 
-################## TOKENIZE TEST AND TRAIN DATA ################################
+#Function that returns the mean "paragraph vector"
+AverageVec = function(review, model)
+{
+  #pre-process and convert to vector of words
+  reviewWordVec = strsplit(preProcessDocument(review, stripDigits = FALSE, lemmatize = FALSE, stem = FALSE), " ")[[1]]
+  
+  #counter for number of words
+  nwords = 0
+  
+  #empty vector
+  totalvec = rep(0, ncol(model))
+  
+  #adding up each vector
+  for (i in reviewWordVec)
+  {
+    if (i %in% rownames(model))
+    {
+      totalvec = totalvec + model[which(rownames(model) %in% i),]
+      nwords = nwords + 1 
+    }
+  }
+  
+  #average vector
+  averagevec = totalvec/nwords
+  
+  return(averagevec)
+}
 
-#reading data
-imdbdata = read_tsv("Datasets/IMDb/IMDBlabeledtrain.tsv")
+#Function that returns the max "paragraph vector"
+MaxVec = function(review, model)
+{
+  #pre-process and convert to vector of words
+  reviewWordVec = strsplit(preProcessDocument(review, stripDigits = FALSE, lemmatize = FALSE, stem = FALSE), " ")[[1]]
+  
+  ## adding each word vector row-wise to a dataframe
+  
+  # create empty data frame
+  totalvec = data.frame()
+  
+  #collecting each word vector into a dataframe
+  for (i in reviewWordVec)
+  {
+    if (i %in% rownames(model))
+    {
+      totalvec = bind_rows(totalvec, data.frame(matrix(model[which(rownames(model) %in% i),],nrow=1)))
+    }
+  }
+  
+  #taking the max across each column to get maxvec
+  maxvec = apply(totalvec, 2, max, na.rm = TRUE)
+  
+  return(maxvec)
+}
 
-#subsetting the first 4000
-imdbtrain = imdbdata[1:4000,2:3]
-imdbtest = imdbdata[20001:21000,2:3]
+#Function that returns the min "paragraph vector"
+MinVec = function(review, model)
+{
+  #pre-process and convert to vector of words
+  reviewWordVec = strsplit(preProcessDocument(review, stripDigits = FALSE, lemmatize = FALSE, stem = FALSE), " ")[[1]]
+  
+  ## adding each word vector row-wise to a dataframe
+  
+  # create empty data frame
+  totalvec = data.frame()
+  
+  #collecting each word vector into a dataframe
+  for (i in reviewWordVec)
+  {
+    if (i %in% rownames(model))
+    {
+      totalvec = bind_rows(totalvec, data.frame(matrix(model[which(rownames(model) %in% i),],nrow=1)))
+    }
+  }
+  
+  #taking the min across each column to get minvec
+  minvec = apply(totalvec, 2, min, na.rm = TRUE)
+  
+  return(minvec)
+}
+
+#Function that returns the average "paragraph vector" for top 30% idf
+AverageVecTop30 = function(review, modelidf)
+{
+  #pre-process and convert to vector of words
+  reviewWordVec = strsplit(preProcessDocument(review, stripDigits = FALSE, lemmatize = FALSE, stem = FALSE), " ")[[1]]
+  
+  ## adding each word vector row-wise to a dataframe
+  
+  ## 1) collect each word and corresponding idf value, keep top 30%
+  
+  #create empty data frame
+  wordidf = data.frame()
+  
+  #collecting each word idf into a dataframe
+  for (i in reviewWordVec)
+  {
+    if (i %in% rownames(modelidf))
+    {
+      #keeping last 2 columns: word name and idf value
+      wordidf = bind_rows(wordidf, modelidf[which(rownames(modelidf) %in% i),c(1,ncol(modelidf))])
+    }
+  }
+  
+  wordidf = wordidf[order(wordidf$idf, decreasing = TRUE),]
+  wordidf = wordidf[1:round((0.3*nrow(wordidf))),]
+  
+  ## 2) taking top 30 words and getting average vector
+  
+  #counter for number of words
+  nwords = 0
+  
+  #empty vector
+  totalvec = rep(0, length(colnames(modelidf)) - 2)
+  
+  #adding up each vector
+  for (i in wordidf$rownames)
+  {
+    if (i %in% rownames(modelidf))
+    {
+      totalvec = totalvec + modelidf[which(rownames(modelidf) %in% i),-c(1,ncol(modelidf))]
+      nwords = nwords + 1 
+    }
+  }
+  
+  #average vector
+  averagevec = totalvec/nwords
+  rownames(averagevec) = c()
+  return(averagevec)
+}
+
+#Function that returns the max "paragraph vector" for top 30% idf
+MaxVecTop30 = function(review, modelidf)
+{
+  #pre-process and convert to vector of words
+  reviewWordVec = strsplit(preProcessDocument(review, stripDigits = FALSE, lemmatize = FALSE, stem = FALSE), " ")[[1]]
+  
+  ## adding each word vector row-wise to a dataframe
+  
+  ## 1) collect each word and corresponding idf value, keep top 30%
+  
+  #create empty data frame
+  wordidf = data.frame()
+  
+  #collecting each word idf into a dataframe
+  for (i in reviewWordVec)
+  {
+    if (i %in% rownames(modelidf))
+    {
+      #keeping last 2 columns: word name and idf value
+      wordidf = bind_rows(wordidf, modelidf[which(rownames(modelidf) %in% i),c(1,ncol(modelidf))])
+    }
+  }
+  
+  wordidf = wordidf[order(wordidf$idf, decreasing = TRUE),]
+  wordidf = wordidf[1:round((0.3*nrow(wordidf))),]
+  
+  ## 2) taking top 30 words and getting max vector
+  
+  # create empty data frame
+  totalvec = data.frame()
+  
+  #collecting each word vector into a dataframe
+  for (i in wordidf$rownames)
+  {
+    if (i %in% rownames(modelidf))
+    {
+      totalvec = bind_rows(totalvec, data.frame(matrix(modelidf[which(rownames(modelidf) %in% i),-c(1,ncol(modelidf))],nrow=1)))
+    }
+  }
+  totalvec = data.frame(matrix(unlist(totalvec), ncol=500, byrow=F))
+  
+  #taking the max across each column to get maxvec
+  maxvec = apply(totalvec, 2, max, na.rm = TRUE)
+  
+  return(maxvec)
+}
+
+#Function that returns the min "paragraph vector" for top 30% idf
+MinVecTop30 = function(review, modelidf)
+{
+  #pre-process and convert to vector of words
+  reviewWordVec = strsplit(preProcessDocument(review, stripDigits = FALSE, lemmatize = FALSE, stem = FALSE), " ")[[1]]
+  
+  ## adding each word vector row-wise to a dataframe
+  
+  ## 1) collect each word and corresponding idf value, keep top 30%
+  
+  #create empty data frame
+  wordidf = data.frame()
+  
+  #collecting each word idf into a dataframe
+  for (i in reviewWordVec)
+  {
+    if (i %in% rownames(modelidf))
+    {
+      #keeping last 2 columns: word name and idf value
+      wordidf = bind_rows(wordidf, modelidf[which(rownames(modelidf) %in% i),c(1,ncol(modelidf))])
+    }
+  }
+  
+  wordidf = wordidf[order(wordidf$idf, decreasing = TRUE),]
+  wordidf = wordidf[1:round((0.3*nrow(wordidf))),]
+  
+  ## 2) taking top 30 words and getting min vector
+  
+  # create empty data frame
+  totalvec = data.frame()
+  
+  #collecting each word vector into a dataframe
+  for (i in wordidf$rownames)
+  {
+    if (i %in% rownames(modelidf))
+    {
+      totalvec = bind_rows(totalvec, data.frame(matrix(modelidf[which(rownames(modelidf) %in% i),-c(1,ncol(modelidf))],nrow=1)))
+    }
+  }
+  totalvec = data.frame(matrix(unlist(totalvec), ncol=500, byrow=F))
+  
+  #taking the min across each column to get minvec
+  minvec = apply(totalvec, 2, min, na.rm = TRUE)
+  
+  return(minvec)
+}
+
+#Function that returns the average "paragraph vector" weighted by idf values
+MeanIdf = function(review, modelidf)
+{
+  #pre-process and convert to vector of words
+  reviewWordVec = strsplit(preProcessDocument(review, stripDigits = FALSE, lemmatize = FALSE, stem = FALSE), " ")[[1]]
+  
+  #counter for number of words
+  nwords = 0
+  
+  #empty vector
+  totalvec = rep(0, ncol(modelidf) - 2)
+  
+  #adding up each vector
+  for (i in reviewWordVec)
+  {
+    if (i %in% rownames(modelidf))
+    {
+      totalvec = totalvec + (modelidf[which(rownames(modelidf) %in% i),-c(1,ncol(modelidf))] * modelidf[which(rownames(modelidf) %in% i),ncol(modelidf)])
+      nwords = nwords + 1 
+    }
+  }
+  
+  #average vector
+  averagevec = totalvec/nwords
+  rownames(averagevec) = c()
+  return(averagevec)
+}
 
 ################## VECTORIZING TEST AND TRAIN ################################
 #definitions:
@@ -655,198 +428,183 @@ imdbtest = imdbdata[20001:21000,2:3]
 #top 30% idf - sorts the words in a text based on their idf values, take mean/max/min of top 30%
 #idf-weighted - weigh each word with corresponding idf value, then take the mean
 
+
 #converting distance matrix to dataframe and appending rownames column for left join
-distancematrix = data.frame(result$distanceMatrix)
-distancematrixidf = cbind(distancematrix, data.frame(rownames(distancematrix), stringsAsFactors = FALSE))
-colnames(distancematrixidf)[ncol(distancematrixidf)] = c("rownames")
-distancematrixidf = left_join(distancematrixidf, unique(tfidf[,c(1,5)]), by = c("rownames" = "word"))
-rownames(distancematrixidf) = colnames(distancematrixidf)[1:(ncol(distancematrixidf)-2)]
+modelidf = data.frame(matrix(model, nrow = 10706, ncol = 500))
+modelidf = cbind(data.frame(rownames(model), stringsAsFactors = FALSE), modelidf)
+colnames(modelidf)[1] = c("rownames")
+modelidf = left_join(modelidf, unique(tfidf[,c(1,5)]), by = c("rownames" = "word"))
+rownames(modelidf) = rownames(model)
+modelidf = modelidf[,-1]
 
 #1) MEAN
 
 #results:
-#OANC, 4000 train, 1000 test - max cv 0.8338, test 0.8315533
-#IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.9139, train 0.9746, test 0.9205, ridge max cv 0.9267, train 0.9917, test 0.9167
+#OANC, 4000 train, 1000 test - train 0.8076, test 0.7964847
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.9227, train 0.9424, test 0.904 
 
 #Return mean paragraph vector for 4000 reviews in train
 meantrainvec = data.frame()
 for (i in 1:4000)
 {
-  meantrainvec = bind_rows(meantrainvec, data.frame(matrix(AverageVec(imdbtrain[i,2],data.frame(result$distanceMatrix)),nrow=1)))
+  meantrainvec = bind_rows(meantrainvec, data.frame(matrix(AverageVec(imdbtrain[i,2],model),nrow=1)))
 }
-colnames(meantrainvec) = colnames(result$distanceMatrix)
 
 #Return mean paragraph vector for all reviews in test
 meantestvec = data.frame()
 for (i in 1:1000)
 {
-  meantestvec = bind_rows(meantestvec, data.frame(matrix(AverageVec(imdbtest[i,2],data.frame(result$distanceMatrix)),nrow=1)))
+  meantestvec = bind_rows(meantestvec, data.frame(matrix(AverageVec(imdbtest[i,2],model),nrow=1)))
 }
-colnames(meantestvec) = colnames(result$distanceMatrix)
 
 #2) MAX
 
 #results:
-#OANC, 4000 train, 1000 test - train 0.8447, test 0.8497296
-#IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.9138 train 0.9883, test 0.9211987, ridge max cv 0.9259, train 0.9951, test 0.9196
+#OANC, 4000 train, 1000 test - train 0.7575, test 0.7645202
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.8756, AUC 0.9109, test 0.8498
 
 #Return max paragraph vector for 4000 reviews in train
 maxtrainvec = data.frame()
 for (i in 1:4000)
 {
-  maxtrainvec = bind_rows(maxtrainvec, data.frame(matrix(MaxVec(imdbtrain[i,2],data.frame(result$distanceMatrix)),nrow=1)))
+  maxtrainvec = bind_rows(maxtrainvec, data.frame(matrix(MaxVec(imdbtrain[i,2],model),nrow=1)))
 }
-colnames(maxtrainvec) = colnames(result$distanceMatrix)
 
 #Return max paragraph vector for all reviews in test
 maxtestvec = data.frame()
 for (i in 1:1000)
 {
-  maxtestvec = bind_rows(maxtestvec, data.frame(matrix(MaxVec(imdbtest[i,2],data.frame(result$distanceMatrix)),nrow=1)))
+  maxtestvec = bind_rows(maxtestvec, data.frame(matrix(MaxVec(imdbtest[i,2],model),nrow=1)))
 }
-colnames(maxtestvec) = colnames(result$distanceMatrix)
 
-#3) MIN
+#3) MIN 
 
-#results:
-#OANC, 4000 train, 1000 test - train 0.8245, test 0.8270452
-#IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.8739 train 0.9914 test 0.8946, ridge max cv 0.8666 train 0.9867 test 0.8943
+#results: 
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.8713, AUC 0.9041, test 0.8541
 
 #Return min paragraph vector for 4000 reviews in train
 mintrainvec = data.frame()
 for (i in 1:4000)
 {
-  mintrainvec = bind_rows(mintrainvec, data.frame(matrix(MinVec(imdbtrain[i,2],data.frame(result$distanceMatrix)),nrow=1)))
+  mintrainvec = bind_rows(mintrainvec, data.frame(matrix(MinVec(imdbtrain[i,2],model),nrow=1)))
 }
-colnames(mintrainvec) = colnames(result$distanceMatrix)
 
 #Return min paragraph vector for all reviews in test
 mintestvec = data.frame()
 for (i in 1:1000)
 {
-  mintestvec = bind_rows(mintestvec, data.frame(matrix(MinVec(imdbtest[i,2],data.frame(result$distanceMatrix)),nrow=1)))
+  mintestvec = bind_rows(mintestvec, data.frame(matrix(MinVec(imdbtest[i,2],model),nrow=1)))
 }
-colnames(mintestvec) = colnames(result$distanceMatrix)
 
 #4) MIN/MAX
 
 #results:
-#OANC, 4000 train, 1000 test - train 0.8386, test 0.8497296
-#IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.9287 train 0.9951 test 0.9196
+#OANC, 4000 train, 1000 test - train 0.7714, test 0.7590041
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.8826, AUC 0.9179, test 0.8621
 
 #5) MEAN, TOP 30% IDF
 
 #results:
-#OANC, 4000 train, 1000 test - train 0.7136, test 0.7081833
-#IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.8533 train 0.9778 test 0.8198
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.8681, AUC 0.8938, test 0.78846
 
-#Return average top 30% idf paragraph vector for 4000 reviews in train
+##Return min paragraph vector for 4000 reviews in train
 meantop30trainvec = data.frame()
 for (i in 1:4000)
 {
-  meantop30trainvec = bind_rows(meantop30trainvec, data.frame(matrix(AverageVecTop30(imdbtrain[i,2],distancematrixidf),nrow=1)))
+  meantop30trainvec = bind_rows(meantop30trainvec, data.frame(matrix(AverageVecTop30(imdbtrain[i,2],modelidf),nrow=1)))
 }
-colnames(meantop30trainvec) = colnames(result$distanceMatrix)
+meantop30trainvec = data.frame(matrix(unlist(meantop30trainvec), nrow=4000, byrow=F))
 
-#Return average top 30% idf paragraph vector for all reviews in test
+#Return min paragraph vector for all reviews in test
 meantop30testvec = data.frame()
 for (i in 1:1000)
 {
-  meantop30testvec = bind_rows(meantop30testvec, data.frame(matrix(AverageVecTop30(imdbtest[i,2],distancematrixidf),nrow=1)))
+  meantop30testvec = bind_rows(meantop30testvec, data.frame(matrix(AverageVecTop30(imdbtest[i,2],modelidf),nrow=1)))
 }
-colnames(meantop30testvec) = colnames(result$distanceMatrix)
+meantop30testvec = data.frame(matrix(unlist(meantop30testvec), nrow=1000, byrow=F))
 
 #6) MAX, TOP 30% IDF
 
 #results:
-#OANC, 4000 train, 1000 test - train 0.7305, test 0.7147674
-#IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.8516 train 0.9789 test 0.8208
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.8289, AUC 0.8647, test 0.7728
 
 #Return max top 30% idf paragraph vector for 4000 reviews in train
 maxtop30trainvec = data.frame()
 for (i in 1:4000)
 {
-  maxtop30trainvec = bind_rows(maxtop30trainvec, data.frame(matrix(MaxVecTop30(imdbtrain[i,2],distancematrixidf),nrow=1)))
+  maxtop30trainvec = bind_rows(maxtop30trainvec, data.frame(matrix(MaxVecTop30(imdbtrain[i,2],modelidf),nrow=1)))
 }
-colnames(maxtop30trainvec) = colnames(result$distanceMatrix)
+maxtop30trainvec = data.frame(matrix(unlist(maxtop30trainvec), nrow=4000, byrow=F))
 
-#Return max top 30% idf paragraph vector for all reviews in test
+#Return min paragraph vector for all reviews in test
 maxtop30testvec = data.frame()
 for (i in 1:1000)
 {
-  maxtop30testvec = bind_rows(maxtop30testvec, data.frame(matrix(MaxVecTop30(imdbtest[i,2],distancematrixidf),nrow=1)))
+  maxtop30testvec = bind_rows(maxtop30testvec, data.frame(matrix(MaxVecTop30(imdbtest[i,2],modelidf),nrow=1)))
 }
-colnames(maxtop30testvec) = colnames(result$distanceMatrix)
+maxtop30testvec = data.frame(matrix(unlist(maxtop30testvec), nrow=1000, byrow=F))
 
 #7) MIN, TOP 30% IDF
 
 #results:
-#OANC, 4000 train, 1000 test - train 0.6852, test 0.6665787
-#IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.7426 train 0.9687 test 0.7597
+#IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.8311, AUC 0.8657, test 0.7765
 
 #Return min top 30% idf paragraph vector for 4000 reviews in train
 mintop30trainvec = data.frame()
 for (i in 1:4000)
 {
-  mintop30trainvec = bind_rows(mintop30trainvec, data.frame(matrix(MinVecTop30(imdbtrain[i,2],distancematrixidf),nrow=1)))
+  mintop30trainvec = bind_rows(mintop30trainvec, data.frame(matrix(MinVecTop30(imdbtrain[i,2],modelidf),nrow=1)))
 }
-colnames(mintop30trainvec) = colnames(result$distanceMatrix)
 
 #Return min top 30% idf paragraph vector for all reviews in test
 mintop30testvec = data.frame()
 for (i in 1:1000)
 {
-  mintop30testvec = bind_rows(mintop30testvec, data.frame(matrix(MinVecTop30(imdbtest[i,2],distancematrixidf),nrow=1)))
+  mintop30testvec = bind_rows(mintop30testvec, data.frame(matrix(MinVecTop30(imdbtest[i,2],modelidf),nrow=1)))
 }
-colnames(mintop30testvec) = colnames(result$distanceMatrix)
 
 #8) MIN/MAX, TOP 30% IDF
 
 #results: 
-#OANC, 4000 train, 1000 test - train 0.7287, test 0.7112514
-#IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.8517 train 0.9789 test 0.8211
+#IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.8391, AUC 0.8679, test 0.7724
 
 #9) MEAN, IDF-WEIGHTED
 
 #results:
-#OANC, 4000 train, 1000 test - train 0.8335, test 0.8411735
-# IMDB (4000 train), 4000 train, 1000 test - ridge max CV 0.9250 train 0.9932 test 0.9139
+# IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.9140, AUC 0.9338, test 0.8893
 
 #Return mean idf paragraph vector for 4000 reviews in train
 meanidftrainvec = data.frame()
 for (i in 1:4000)
 {
-  meanidftrainvec = bind_rows(meanidftrainvec, data.frame(matrix(MeanIdf(imdbtrain[i,2],distancematrixidf),nrow=1)))
+  meanidftrainvec = bind_rows(meanidftrainvec, data.frame(matrix(MeanIdf(imdbtrain[i,2],modelidf),nrow=1)))
 }
-colnames(meanidftrainvec) = colnames(result$distanceMatrix)
+meanidftrainvec = data.frame(matrix(unlist(meanidftrainvec), nrow=4000, byrow=F))
 
 #Return mean idf paragraph vector for all reviews in test
 meanidftestvec = data.frame()
 for (i in 1:1000)
 {
-  meanidftestvec = bind_rows(meanidftestvec, data.frame(matrix(MeanIdf(imdbtest[i,2],distancematrixidf),nrow=1)))
+  meanidftestvec = bind_rows(meanidftestvec, data.frame(matrix(MeanIdf(imdbtest[i,2],modelidf),nrow=1)))
 }
-colnames(meanidftestvec) = colnames(result$distanceMatrix)
+meanidftestvec = data.frame(matrix(unlist(meanidftestvec), nrow=1000, byrow=F))
 
 ######################### LOGISTIC REGRESSION ################################
-
-library(glmnet)
-library(pROC)
 
 imdbtrainvec = meanidftrainvec
 imdbtestvec = meanidftestvec
 
 #10-fold CV to obtain optimal lambda for ridge)
 cv_model = cv.glmnet(x = as.matrix(imdbtrainvec), y = imdbtrain$sentiment[1:4000], 
-                              family = 'binomial',
-                              #supplying sequence of lambdas from 10^-3 to 10^10
-                              lambda = 10^seq(10,-3,length=300),
-                              # L2 penalty (ridge), alpha = 0
-                              alpha = 0, 
-                              #auc used as loss measure for cross-validation
-                              type.measure = "auc",
-                              # 10-fold cross-validation
-                              nfolds = 10)
+                     family = 'binomial',
+                     #supplying sequence of lambdas from 10^-3 to 10^10
+                     lambda = 10^seq(10,-3,length=300),
+                     # L2 penalty (ridge), alpha = 0
+                     alpha = 0, 
+                     #auc used as loss measure for cross-validation
+                     type.measure = "auc",
+                     # 10-fold cross-validation
+                     nfolds = 10)
 plot(cv_model)
 print(paste("max AUC for train =", max(cv_model$cvm)))
 min_lambda = cv_model$lambda.min
