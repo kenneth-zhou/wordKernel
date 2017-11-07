@@ -82,7 +82,7 @@ imdbtrain = imdbdata[1:4000,2:3]
 
 #preparing IMDb documents for word2vec pre-training
 imdbcorpus = imdbtrain$review
-setwd("~/Desktop/wordKernel/Datasets/IMDb/word2vec")
+setwd("C:/Users/Kenneth/Desktop/wordKernel/Datasets/IMDb/word2vec")
 
 for (i in 1:length(imdbcorpus))
 {
@@ -93,6 +93,35 @@ prep_word2vec(origin="documents",destination="word2vec_prepped.txt",lowercase=T,
 
 #train model
 if (!file.exists("word2vec_vectors.bin")) {model = train_word2vec("word2vec_prepped.txt","word2vec_vectors.bin",vectors=500,threads=7,window=12,iter=5)} else model = read.vectors("word2vec_vectors.bin")
+
+## GET IDF VALUES OF WORD EMBEDDINGS
+
+# create empty data frame
+tfidf = data.frame() 
+
+#just pre-train on 4000 train
+imdbcorpus = read_tsv("Datasets/IMDb/IMDBlabeledtrain.tsv")
+imdbcorpus = imdbcorpus$review[1:4000]
+
+# populate data frame: each row corresponds to a word (non-unique) from the corpus
+# word's document origin also included
+for(i in 1:length(imdbcorpus)) {
+  docstring <- strsplit(preProcessDocument(imdbcorpus[i], lemmatize = FALSE, stem = FALSE), " ")[[1]] 
+  docstring <- docstring[which(nchar(docstring)>0)]
+  docstring <- data.frame(matrix(docstring, ncol = 1), stringsAsFactors = FALSE)
+  colnames(docstring) <- c("V1")
+  doc <- docstring %>%
+    unnest_tokens(word, V1) %>%
+    cbind(data.frame(rep(i,nrow(.)))) %>%
+    setNames(c("word","doc")) 
+  tfidf = rbind(tfidf, doc)
+}
+
+# create tf-idf matrix for corpus
+tfidf <- tfidf %>% 
+  count(word, doc, sort = TRUE) %>% ## word count per document
+  ungroup() %>%
+  bind_tf_idf(word, doc, n)
 
 ########################## EXAMINING PRE-TRAINED VECTORS ############################
 
@@ -240,7 +269,7 @@ AverageVecTop30 = function(review, modelidf)
     if (i %in% rownames(modelidf))
     {
       #keeping last 2 columns: word name and idf value
-      wordidf = bind_rows(wordidf, modelidf[which(rownames(modelidf) %in% i),(ncol(modelidf)-1):ncol(modelidf)])
+      wordidf = bind_rows(wordidf, modelidf[which(rownames(modelidf) %in% i),c(1,ncol(modelidf))])
     }
   }
   
@@ -258,15 +287,16 @@ AverageVecTop30 = function(review, modelidf)
   #adding up each vector
   for (i in wordidf$rownames)
   {
-    if (i %in% colnames(modelidf))
+    if (i %in% rownames(modelidf))
     {
-      totalvec = totalvec + modelidf[,which(colnames(modelidf) %in% i)]
+      totalvec = totalvec + modelidf[which(rownames(modelidf) %in% i),-c(1,ncol(modelidf))]
       nwords = nwords + 1 
     }
   }
   
   #average vector
   averagevec = totalvec/nwords
+  rownames(averagevec) = c()
   return(averagevec)
 }
 
@@ -289,7 +319,7 @@ MaxVecTop30 = function(review, modelidf)
     if (i %in% rownames(modelidf))
     {
       #keeping last 2 columns: word name and idf value
-      wordidf = bind_rows(wordidf, modelidf[which(rownames(modelidf) %in% i),(ncol(modelidf)-1):ncol(modelidf)])
+      wordidf = bind_rows(wordidf, modelidf[which(rownames(modelidf) %in% i),c(1,ncol(modelidf))])
     }
   }
   
@@ -304,11 +334,12 @@ MaxVecTop30 = function(review, modelidf)
   #collecting each word vector into a dataframe
   for (i in wordidf$rownames)
   {
-    if (i %in% colnames(modelidf))
+    if (i %in% rownames(modelidf))
     {
-      totalvec = bind_rows(totalvec, data.frame(matrix(modelidf[,which(colnames(modelidf) %in% i),],nrow=1)))
+      totalvec = bind_rows(totalvec, data.frame(matrix(modelidf[which(rownames(modelidf) %in% i),-c(1,ncol(modelidf))],nrow=1)))
     }
   }
+  totalvec = data.frame(matrix(unlist(totalvec), ncol=500, byrow=F))
   
   #taking the max across each column to get maxvec
   maxvec = apply(totalvec, 2, max, na.rm = TRUE)
@@ -335,7 +366,7 @@ MinVecTop30 = function(review, modelidf)
     if (i %in% rownames(modelidf))
     {
       #keeping last 2 columns: word name and idf value
-      wordidf = bind_rows(wordidf, modelidf[which(rownames(modelidf) %in% i),(ncol(modelidf)-1):ncol(modelidf)])
+      wordidf = bind_rows(wordidf, modelidf[which(rownames(modelidf) %in% i),c(1,ncol(modelidf))])
     }
   }
   
@@ -350,11 +381,12 @@ MinVecTop30 = function(review, modelidf)
   #collecting each word vector into a dataframe
   for (i in wordidf$rownames)
   {
-    if (i %in% colnames(modelidf))
+    if (i %in% rownames(modelidf))
     {
-      totalvec = bind_rows(totalvec, data.frame(matrix(modelidf[,which(colnames(modelidf) %in% i),],nrow=1)))
+      totalvec = bind_rows(totalvec, data.frame(matrix(modelidf[which(rownames(modelidf) %in% i),-c(1,ncol(modelidf))],nrow=1)))
     }
   }
+  totalvec = data.frame(matrix(unlist(totalvec), ncol=500, byrow=F))
   
   #taking the min across each column to get minvec
   minvec = apply(totalvec, 2, min, na.rm = TRUE)
@@ -372,21 +404,21 @@ MeanIdf = function(review, modelidf)
   nwords = 0
   
   #empty vector
-  totalvec = rep(0, length(colnames(modelidf)) - 2)
+  totalvec = rep(0, ncol(modelidf) - 2)
   
   #adding up each vector
   for (i in reviewWordVec)
   {
-    if (i %in% colnames(modelidf))
+    if (i %in% rownames(modelidf))
     {
-      totalvec = totalvec + (modelidf[,which(colnames(modelidf) %in% i)] * modelidf[which(rownames(modelidf) %in% i),ncol(modelidf)])
+      totalvec = totalvec + (modelidf[which(rownames(modelidf) %in% i),-c(1,ncol(modelidf))] * modelidf[which(rownames(modelidf) %in% i),ncol(modelidf)])
       nwords = nwords + 1 
     }
   }
   
   #average vector
   averagevec = totalvec/nwords
-  
+  rownames(averagevec) = c()
   return(averagevec)
 }
 
@@ -398,16 +430,18 @@ MeanIdf = function(review, modelidf)
 
 
 #converting distance matrix to dataframe and appending rownames column for left join
-modelidf = data.frame(model)
-modelidf = cbind(model, data.frame(rownames(model), stringsAsFactors = FALSE))
-colnames(modelidf)[501] = c("rownames")
+modelidf = data.frame(matrix(model, nrow = 10706, ncol = 500))
+modelidf = cbind(data.frame(rownames(model), stringsAsFactors = FALSE), modelidf)
+colnames(modelidf)[1] = c("rownames")
 modelidf = left_join(modelidf, unique(tfidf[,c(1,5)]), by = c("rownames" = "word"))
+rownames(modelidf) = rownames(model)
+modelidf = modelidf[,-1]
 
 #1) MEAN
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.8076, test 0.7964847
-#IMDb (4000 train), 4000 train, 1000 test - train 0.9158, test 0.9031144
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.9227, train 0.9424, test 0.904 
 
 #Return mean paragraph vector for 4000 reviews in train
 meantrainvec = data.frame()
@@ -427,7 +461,7 @@ for (i in 1:1000)
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.7575, test 0.7645202
-#IMDb (4000 train), 4000 train, 1000 test - train 0.865, test 0.8429655
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.8756, AUC 0.9109, test 0.8498
 
 #Return max paragraph vector for 4000 reviews in train
 maxtrainvec = data.frame()
@@ -443,11 +477,10 @@ for (i in 1:1000)
   maxtestvec = bind_rows(maxtestvec, data.frame(matrix(MaxVec(imdbtest[i,2],model),nrow=1)))
 }
 
-#3) MIN
+#3) MIN 
 
-#results:
-#OANC, 4000 train, 1000 test - train 0.786, 0.7800445
-#IMDb (4000 train), 4000 train, 1000 test - train 0.856, test 0.8387774
+#results: 
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.8713, AUC 0.9041, test 0.8541
 
 #Return min paragraph vector for 4000 reviews in train
 mintrainvec = data.frame()
@@ -467,33 +500,129 @@ for (i in 1:1000)
 
 #results:
 #OANC, 4000 train, 1000 test - train 0.7714, test 0.7590041
-#IMDb (4000 train), 4000 train, 1000 test - train 0.8758, test 0.8500136
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.8826, AUC 0.9179, test 0.8621
+
+#5) MEAN, TOP 30% IDF
+
+#results:
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.8681, AUC 0.8938, test 0.78846
+
+##Return min paragraph vector for 4000 reviews in train
+meantop30trainvec = data.frame()
+for (i in 1:4000)
+{
+  meantop30trainvec = bind_rows(meantop30trainvec, data.frame(matrix(AverageVecTop30(imdbtrain[i,2],modelidf),nrow=1)))
+}
+meantop30trainvec = data.frame(matrix(unlist(meantop30trainvec), nrow=4000, byrow=F))
+
+#Return min paragraph vector for all reviews in test
+meantop30testvec = data.frame()
+for (i in 1:1000)
+{
+  meantop30testvec = bind_rows(meantop30testvec, data.frame(matrix(AverageVecTop30(imdbtest[i,2],modelidf),nrow=1)))
+}
+meantop30testvec = data.frame(matrix(unlist(meantop30testvec), nrow=1000, byrow=F))
+
+#6) MAX, TOP 30% IDF
+
+#results:
+#IMDb (4000 train), 4000 train, 1000 test - lasso max cv 0.8289, AUC 0.8647, test 0.7728
+
+#Return max top 30% idf paragraph vector for 4000 reviews in train
+maxtop30trainvec = data.frame()
+for (i in 1:4000)
+{
+  maxtop30trainvec = bind_rows(maxtop30trainvec, data.frame(matrix(MaxVecTop30(imdbtrain[i,2],modelidf),nrow=1)))
+}
+maxtop30trainvec = data.frame(matrix(unlist(maxtop30trainvec), nrow=4000, byrow=F))
+
+#Return min paragraph vector for all reviews in test
+maxtop30testvec = data.frame()
+for (i in 1:1000)
+{
+  maxtop30testvec = bind_rows(maxtop30testvec, data.frame(matrix(MaxVecTop30(imdbtest[i,2],modelidf),nrow=1)))
+}
+maxtop30testvec = data.frame(matrix(unlist(maxtop30testvec), nrow=1000, byrow=F))
+
+#7) MIN, TOP 30% IDF
+
+#results:
+#IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.8311, AUC 0.8657, test 0.7765
+
+#Return min top 30% idf paragraph vector for 4000 reviews in train
+mintop30trainvec = data.frame()
+for (i in 1:4000)
+{
+  mintop30trainvec = bind_rows(mintop30trainvec, data.frame(matrix(MinVecTop30(imdbtrain[i,2],modelidf),nrow=1)))
+}
+
+#Return min top 30% idf paragraph vector for all reviews in test
+mintop30testvec = data.frame()
+for (i in 1:1000)
+{
+  mintop30testvec = bind_rows(mintop30testvec, data.frame(matrix(MinVecTop30(imdbtest[i,2],modelidf),nrow=1)))
+}
+
+#8) MIN/MAX, TOP 30% IDF
+
+#results: 
+#IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.8391, AUC 0.8679, test 0.7724
+
+#9) MEAN, IDF-WEIGHTED
+
+#results:
+# IMDB (4000 train), 4000 train, 1000 test - lasso max cv 0.9140, AUC 0.9338, test 0.8893
+
+#Return mean idf paragraph vector for 4000 reviews in train
+meanidftrainvec = data.frame()
+for (i in 1:4000)
+{
+  meanidftrainvec = bind_rows(meanidftrainvec, data.frame(matrix(MeanIdf(imdbtrain[i,2],modelidf),nrow=1)))
+}
+meanidftrainvec = data.frame(matrix(unlist(meanidftrainvec), nrow=4000, byrow=F))
+
+#Return mean idf paragraph vector for all reviews in test
+meanidftestvec = data.frame()
+for (i in 1:1000)
+{
+  meanidftestvec = bind_rows(meanidftestvec, data.frame(matrix(MeanIdf(imdbtest[i,2],modelidf),nrow=1)))
+}
+meanidftestvec = data.frame(matrix(unlist(meanidftestvec), nrow=1000, byrow=F))
 
 ######################### LOGISTIC REGRESSION ################################
 
-imdbtrainvec = maxtrainvec + mintrainvec
-imdbtestvec = maxtestvec + mintestvec
+imdbtrainvec = meanidftrainvec
+imdbtestvec = meanidftestvec
 
-#Fit model
-library(glmnet)
-NFOLDS = 4
-t1 = Sys.time()
-glmnet_classifier = cv.glmnet(x = as.matrix(imdbtrainvec), y = imdbtrain$sentiment[1:4000], 
-                              family = 'binomial', 
-                              # L1 penalty
-                              alpha = 0, 
-                              #lasso penalty
-                              type.measure = "auc",
-                              # 5-fold cross-validation
-                              nfolds = NFOLDS,
-                              # high value is less accurate, but has faster training
-                              thresh = 1e-3,
-                              # again lower number of iterations for faster training
-                              maxit = 1e3)
-print(difftime(Sys.time(), t1, units = 'sec'))
+#10-fold CV to obtain optimal lambda for ridge)
+cv_model = cv.glmnet(x = as.matrix(imdbtrainvec), y = imdbtrain$sentiment[1:4000], 
+                     family = 'binomial',
+                     #supplying sequence of lambdas from 10^-3 to 10^10
+                     lambda = 10^seq(10,-3,length=300),
+                     # L2 penalty (ridge), alpha = 0
+                     alpha = 0, 
+                     #auc used as loss measure for cross-validation
+                     type.measure = "auc",
+                     # 10-fold cross-validation
+                     nfolds = 10)
+plot(cv_model)
+print(paste("max AUC for train =", max(cv_model$cvm)))
+min_lambda = cv_model$lambda.min
 
-plot(glmnet_classifier)
-print(paste("max AUC =", round(max(glmnet_classifier$cvm), 4)))
+#fit lasso log model with optimal lambda
+logmodel = glmnet(x = as.matrix(imdbtrainvec), y = imdbtrain$sentiment[1:4000], 
+                  family = 'binomial',
+                  lambda = min_lambda,
+                  alpha = 0)
 
-preds = predict(glmnet_classifier,as.matrix(imdbtestvec),type = 'response')[,1]
-glmnet::auc(imdbtest$sentiment[1:1000], preds)
+preds = predict(logmodel, newx = as.matrix(imdbtrainvec), type = "response")[,1]
+roccurve <- roc(imdbtrain$sentiment[1:4000] ~ preds)
+plot(roccurve)
+auc(roccurve)
+
+#producing classification matrix and AUC for test
+preds.test = predict(logmodel, newx = as.matrix(imdbtestvec), type = "response")[,1]
+preds.test.labels = rep("0_predicted", length(preds.test))
+preds.test.labels[preds.test > 0.5] = "1_predicted"
+table(preds.test.labels, imdbtest$sentiment)
+glmnet::auc(imdbtest$sentiment[1:1000],preds.test)
