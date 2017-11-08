@@ -58,7 +58,7 @@ Pre-trained on 4000 IMDb reviews.  Based on cossine similarity, top 10 most simi
 
 #### Sentiment Classification with Regularized Logistic Regression
 
-4000 train / 1000 test
+4000 train / 1000 test.
 
 Generated paragraph embeddings through multiple methods, referencing: https://arxiv.org/pdf/1607.00570.pdf.  wordKernel, word2vec and tf-idf word embeddings are pre-trained on 4000 IMDb reviews.  L2 (ridge) logistic regression models are then trained on paragraph embeddings of the same 4000 reviews, before being tested on 1000 reviews.  AUC values are shown below.
 
