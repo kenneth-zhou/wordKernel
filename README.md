@@ -118,6 +118,8 @@ Generated paragraph embeddings through multiple methods, referencing: https://ar
 
 ### 3 Little Pigs
 
+#### Word embeddings
+
 Pre-trained on 3 Little Pigs, ~1000 total words, ~50 unique words.  Below are top 3 most similar words:
 
 <table style="width:100%">
@@ -149,6 +151,8 @@ Pre-trained on 3 Little Pigs, ~1000 total words, ~50 unique words.  Below are to
 </table>
 
 ### A Christmas Carol
+
+#### Word embeddings
 
 Pre-trained on A Christmas Carol, 10515 total words, 3906 unique words.  Below are top 10 most similar words:
 
